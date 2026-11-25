@@ -1,0 +1,3815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PlonkBot — Physics Ragdoll Platformer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #162436;
+      --ui-bg: rgba(255, 255, 255, 0.94);
+      --ui-shadow: 0 8px 22px rgba(15, 35, 52, 0.18);
+      --accent: #00b4d8;
+      --accent-dark: #0077b6;
+      --gold: #ffbe0b;
+      --danger: #ef476f;
+      --success: #06d6a0;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #27d3cf;
+      font-family: 'Fredoka', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    /* TOP HUD */
+    .hud-top {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top));
+      left: 0;
+      right: 0;
+      padding: 0 14px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .hud-left-pill {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--ui-bg);
+      border: 2.5px solid var(--ink);
+      border-radius: 999px;
+      padding: 6px 14px 6px 8px;
+      box-shadow: var(--ui-shadow);
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    .hud-left-pill:active {
+      transform: scale(0.95);
+    }
+
+    .back-chevron {
+      color: #0096c7;
+      font-weight: 700;
+      font-size: 18px;
+      line-height: 1;
+      padding-left: 2px;
+    }
+
+    .progress-ring-wrap {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .progress-ring-wrap svg {
+      width: 34px;
+      height: 34px;
+      transform: rotate(-90deg);
+    }
+
+    .level-num-badge {
+      position: absolute;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .level-title-text {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: 0.3px;
+    }
+
+    .hud-right-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .hud-right-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: var(--ui-bg);
+      border: 2.5px solid var(--ink);
+      box-shadow: var(--ui-shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--ink);
+      transition: transform 0.1s ease;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.92);
+    }
+
+    /* Skin Card matching Plonky's top-right character card */
+    .skin-card-btn {
+      pointer-events: auto;
+      position: relative;
+      width: 66px;
+      height: 78px;
+      background: #f5efe6;
+      border: 2.5px solid var(--ink);
+      border-radius: 10px;
+      box-shadow: var(--ui-shadow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 4px;
+      transition: transform 0.12s ease;
+    }
+
+    .skin-card-btn:active {
+      transform: scale(0.94);
+    }
+
+    .skin-card-tag {
+      position: absolute;
+      bottom: -9px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      letter-spacing: 0.4px;
+    }
+
+    /* STAGE HINT TOAST */
+    .hint-banner {
+      position: absolute;
+      top: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22, 36, 54, 0.84);
+      color: #ffffff;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      text-align: center;
+      max-width: min(88vw, 480px);
+      z-index: 15;
+    }
+
+    .hint-banner.visible {
+      opacity: 1;
+    }
+
+    /* BOTTOM TOUCH CONTROLS (Exact 4 Outlined Plonky Buttons) */
+    .controls-bar {
+      position: absolute;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      left: 0;
+      right: 0;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: clamp(14px, 4vw, 28px);
+      pointer-events: auto;
+    }
+
+    .ctrl-btn {
+      width: clamp(62px, 16vw, 76px);
+      height: clamp(62px, 16vw, 76px);
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: none;
+      transition: transform 0.08s ease, background 0.08s ease;
+    }
+
+    .ctrl-btn.pressed,
+    .ctrl-btn:active {
+      transform: scale(0.91);
+      background: rgba(255, 255, 255, 0.34);
+    }
+
+    .ctrl-btn svg {
+      width: 38px;
+      height: 38px;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.28));
+    }
+
+    /* MODALS */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 28, 44, 0.62);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 40;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 440px;
+      background: #ffffff;
+      border: 3px solid var(--ink);
+      border-radius: 24px;
+      padding: 22px 20px;
+      box-shadow: 0 18px 40px rgba(10, 22, 36, 0.35);
+      text-align: center;
+      color: var(--ink);
+      max-height: 86dvh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      margin: 0 0 6px;
+      font-size: 26px;
+      font-weight: 700;
+    }
+
+    .modal-sub {
+      margin: 0 0 18px;
+      font-size: 14px;
+      color: #4f6478;
+    }
+
+    .btn-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .primary-btn {
+      width: 100%;
+      padding: 13px 18px;
+      border-radius: 14px;
+      border: 2.5px solid var(--ink);
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 0 var(--ink);
+      transition: transform 0.08s ease;
+    }
+
+    .primary-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 var(--ink);
+    }
+
+    .secondary-btn {
+      width: 100%;
+      padding: 12px 18px;
+      border-radius: 14px;
+      border: 2.5px solid var(--ink);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #f1f5f9;
+      color: var(--ink);
+      box-shadow: 0 4px 0 var(--ink);
+    }
+
+    .secondary-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 var(--ink);
+    }
+
+    .levels-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .lvl-cell {
+      aspect-ratio: 1;
+      border-radius: 14px;
+      border: 2.5px solid var(--ink);
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #e2e8f0;
+      color: #64748b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 0 var(--ink);
+    }
+
+    .lvl-cell.unlocked {
+      background: #ffffff;
+      color: var(--ink);
+    }
+
+    .lvl-cell.completed {
+      background: #d8f8ee;
+      color: #066e52;
+    }
+
+    .lvl-cell.current {
+      background: var(--gold);
+      color: var(--ink);
+    }
+
+    .skins-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .skin-option {
+      border: 2.5px solid var(--ink);
+      border-radius: 16px;
+      padding: 12px 10px;
+      background: #f8fafc;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      font-weight: 700;
+      color: var(--ink);
+      box-shadow: 0 3px 0 var(--ink);
+    }
+
+    .skin-option.selected {
+      background: #e0f7fa;
+      border-color: #0077b6;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- TOP HUD -->
+    <div class="hud-top">
+      <button class="hud-left-pill" id="btnLevelSelect" aria-label="Stage Select">
+        <span class="back-chevron">&#10094;</span>
+        <div class="progress-ring-wrap">
+          <svg viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="14" fill="none" stroke="#dbeafe" stroke-width="4"></circle>
+            <circle id="progressCircle" cx="18" cy="18" r="14" fill="none" stroke="#0096c7" stroke-width="4" stroke-dasharray="88" stroke-dashoffset="44" stroke-linecap="round"></circle>
+          </svg>
+          <span class="level-num-badge" id="hudLevelNum">1</span>
+        </div>
+        <span class="level-title-text" id="hudLevelName">STAGE 1</span>
+      </button>
+
+      <div class="hud-right-col">
+        <div class="hud-right-row">
+          <button class="icon-btn" id="btnQuickRestart" aria-label="Restart Stage" title="Restart Stage (R)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+          </button>
+          <button class="icon-btn" id="btnPause" aria-label="Pause Game" title="Pause (P)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="5" y="4" width="5" height="16" rx="2"></rect>
+              <rect x="14" y="4" width="5" height="16" rx="2"></rect>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Avatar Skin Card (Plonky style) -->
+        <button class="skin-card-btn" id="btnSkinModal" aria-label="Customize PlonkBot">
+          <canvas id="skinPreviewCanvas" width="48" height="54"></canvas>
+          <span class="skin-card-tag">BOT</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Stage Tip Banner -->
+    <div class="hint-banner" id="hintBanner"></div>
+
+    <!-- BOTTOM ON-SCREEN CONTROLS -->
+    <div class="controls-bar">
+      <div class="ctrl-group">
+        <button class="ctrl-btn" id="btnLeft" aria-label="Move Left">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M31 10L13 24L31 38Z" stroke="#FFFFFF" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn" id="btnRight" aria-label="Move Right">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M17 10L35 24L17 38Z" stroke="#FFFFFF" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="ctrl-group">
+        <button class="ctrl-btn" id="btnDown" aria-label="Crouch or Climb Down">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M10 17L24 35L38 17Z" stroke="#FFFFFF" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="ctrl-btn" id="btnUp" aria-label="Jump or Climb Up">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M10 31L24 13L38 31Z" stroke="#FFFFFF" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- PAUSE MODAL -->
+    <div class="modal-backdrop" id="pauseModal">
+      <div class="modal-card">
+        <h2 class="modal-title">PAUSED</h2>
+        <p class="modal-sub" id="pauseStageLabel">Stage 1 — PlonkBot</p>
+        <div class="btn-stack">
+          <button class="primary-btn" id="btnResume">RESUME</button>
+          <button class="secondary-btn" id="btnModalRestart">RESTART STAGE</button>
+          <button class="secondary-btn" id="btnToggleSound">SOUND: ON</button>
+          <button class="secondary-btn" id="btnOpenStagesFromPause">SELECT STAGE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAGE SELECT MODAL -->
+    <div class="modal-backdrop" id="stagesModal">
+      <div class="modal-card">
+        <h2 class="modal-title">SELECT STAGE</h2>
+        <p class="modal-sub">15 Extended Contraption Stages</p>
+        <div class="levels-grid" id="levelsGrid"></div>
+        <button class="secondary-btn" id="btnCloseStages">CLOSE</button>
+      </div>
+    </div>
+
+    <!-- SKIN SELECTOR MODAL -->
+    <div class="modal-backdrop" id="skinsModal">
+      <div class="modal-card">
+        <h2 class="modal-title">PLONKBOT CHASSIS</h2>
+        <p class="modal-sub">Choose your droid paint &amp; visor style</p>
+        <div class="skins-grid" id="skinsGrid"></div>
+        <button class="primary-btn" id="btnCloseSkins">EQUIP &amp; PLAY</button>
+      </div>
+    </div>
+
+    <!-- STAGE CLEAR MODAL -->
+    <div class="modal-backdrop" id="winModal">
+      <div class="modal-card">
+        <h2 class="modal-title">STAGE CLEAR!</h2>
+        <p class="modal-sub" id="winSummary">PlonkBot crossed the goal portal!</p>
+        <div class="btn-stack">
+          <button class="primary-btn" id="btnNextStage">NEXT STAGE &#10140;</button>
+          <button class="secondary-btn" id="btnReplayStage">REPLAY STAGE</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      // =========================================================================
+      // 1. PERSISTENCE & CONFIG
+      // =========================================================================
+      const STORAGE_KEY = 'plonkbot_adventure_v2';
+
+      const SKINS = [
+        {
+          id: 'mint',
+          name: 'Mint Scout',
+          body: '#ffffff',
+          trim: '#00b4d8',
+          visor: '#132238',
+          eye: '#38f2ff',
+          boots: '#0077b6'
+        },
+        {
+          id: 'crimson',
+          name: 'Crimson Striker',
+          body: '#ffe5ec',
+          trim: '#ef476f',
+          visor: '#1b1325',
+          eye: '#ffbe0b',
+          boots: '#b5173e'
+        },
+        {
+          id: 'solar',
+          name: 'Solar Gold',
+          body: '#fff8db',
+          trim: '#ff9f1c',
+          visor: '#1d1e2c',
+          eye: '#06d6a0',
+          boots: '#d97706'
+        },
+        {
+          id: 'cyber',
+          name: 'Cyber Violet',
+          body: '#f3e8ff',
+          trim: '#8338ec',
+          visor: '#141124',
+          eye: '#ff4d94',
+          boots: '#5a189a'
+        }
+      ];
+
+      function loadSave() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+              unlockedLevel: Math.max(1, Math.min(15, parsed.unlockedLevel || 1)),
+              completedLevels: Array.isArray(parsed.completedLevels) ? parsed.completedLevels : [],
+              selectedSkin: parsed.selectedSkin || 'mint',
+              muted: Boolean(parsed.muted)
+            };
+          }
+        } catch (err) {
+          // Ignore storage restrictions
+        }
+        return {
+          unlockedLevel: 1,
+          completedLevels: [],
+          selectedSkin: 'mint',
+          muted: false
+        };
+      }
+
+      const saveState = loadSave();
+
+      function persistSave() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(saveState));
+        } catch (err) {
+          // Ignore storage restrictions
+        }
+      }
+
+      // =========================================================================
+      // 2. PROCEDURAL WEB AUDIO ENGINE
+      // =========================================================================
+      let audioCtx = null;
+
+      function ensureAudio() {
+        if (saveState.muted) return null;
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx = new Ctx();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+        return audioCtx;
+      }
+
+      function playTone(freqStart, freqEnd, duration, type = 'sine', volume = 0.14) {
+        const ctx = ensureAudio();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freqStart, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), now + duration);
+
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+
+      const SoundFX = {
+        jump: () => playTone(230, 510, 0.15, 'triangle', 0.16),
+        spring: () => playTone(180, 780, 0.24, 'sine', 0.18),
+        land: () => playTone(130, 55, 0.09, 'sine', 0.12),
+        switchOn: () => playTone(440, 660, 0.12, 'square', 0.1),
+        checkpoint: () => {
+          playTone(523, 659, 0.1, 'triangle', 0.14);
+          setTimeout(() => playTone(784, 1046, 0.16, 'triangle', 0.15), 80);
+        },
+        cannon: () => playTone(140, 42, 0.28, 'sawtooth', 0.2),
+        bumper: () => playTone(340, 740, 0.14, 'sine', 0.16),
+        crumble: () => playTone(160, 70, 0.18, 'square', 0.11),
+        ropeGrab: () => playTone(180, 290, 0.08, 'sine', 0.12),
+        arrowShoot: () => playTone(560, 240, 0.12, 'triangle', 0.13),
+        laserShoot: () => playTone(880, 210, 0.16, 'sawtooth', 0.14),
+        hurt: () => playTone(190, 58, 0.3, 'sawtooth', 0.18),
+        win: () => {
+          playTone(392, 523, 0.14, 'triangle', 0.16);
+          setTimeout(() => playTone(523, 659, 0.14, 'triangle', 0.16), 110);
+          setTimeout(() => playTone(659, 784, 0.26, 'triangle', 0.18), 220);
+        }
+      };
+
+      // =========================================================================
+      // 3. EXTENDED MULTI-SECTION LEVEL DEFINITIONS (15 DISTINCT STAGES)
+      // =========================================================================
+      const LEVELS = [
+        // STAGE 1: Classic Plonky Opening — Tilting Bridges + Boulder Pit
+        {
+          name: 'STAGE 1',
+          theme: 'tropical',
+          hint: 'Walk across the tilting wooden ramp, then roll the boulder into the ditch!',
+          spawn: { x: 110, y: 310 },
+          checkpoints: [{ x: 1280, y: 360 }],
+          goal: { x: 2480, y: 310 },
+          trees: [
+            { x: 60, y: 370, scale: 1.0 },
+            { x: 1320, y: 360, scale: 0.9 },
+            { x: 2380, y: 360, scale: 1.05 }
+          ],
+          platforms: [
+            { x: 0, y: 370, w: 460, h: 480, type: 'earth' },
+            { x: 760, y: 385, w: 320, h: 480, type: 'earth' },
+            { x: 1220, y: 360, w: 680, h: 480, type: 'earth' },
+            { x: 1900, y: 445, w: 125, h: 395, type: 'earth' },
+            { x: 2025, y: 360, w: 560, h: 480, type: 'earth' }
+          ],
+          bridges: [
+            { x: 610, y: 378, length: 320, thickness: 22, angle: -0.14, minAngle: -0.35, maxAngle: 0.35 },
+            { x: 1150, y: 372, length: 180, thickness: 22, angle: 0.08, minAngle: -0.3, maxAngle: 0.3 }
+          ],
+          balls: [
+            { x: 1580, y: 324, r: 36, mass: 3.4 }
+          ],
+          crates: [],
+          ropes: [],
+          springs: [],
+          movers: [],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [],
+          gates: [],
+          hazards: [],
+          shooters: [
+            { type: 'bow', x: 1120, y: 315, dir: -1, interval: 2.3, timer: 1.0, speed: 340 }
+          ],
+          pendulums: []
+        },
+
+        // STAGE 2: Tarzan Rope Swing, Fragile Bridges & Crate Steps
+        {
+          name: 'STAGE 2',
+          theme: 'tropical',
+          hint: 'Grab ANYWHERE on the swinging ropes! Watch out for crumbling wooden planks!',
+          spawn: { x: 110, y: 310 },
+          checkpoints: [{ x: 1380, y: 370 }],
+          goal: { x: 2660, y: 310 },
+          trees: [
+            { x: 60, y: 370, scale: 1.0 },
+            { x: 1420, y: 370, scale: 0.95 },
+            { x: 2560, y: 360, scale: 1.05 }
+          ],
+          platforms: [
+            { x: 0, y: 370, w: 420, h: 480, type: 'earth' },
+            { x: 760, y: 390, w: 280, h: 480, type: 'earth' },
+            { x: 1320, y: 370, w: 460, h: 480, type: 'earth' },
+            { x: 2220, y: 360, w: 540, h: 480, type: 'earth' }
+          ],
+          bridges: [],
+          balls: [],
+          crates: [
+            { x: 1580, y: 330, w: 56, h: 56 },
+            { x: 1655, y: 330, w: 56, h: 56 }
+          ],
+          ropes: [
+            { anchorX: 590, anchorY: 85, length: 255, amp: 0.58, speed: 2.3, phase: 0 },
+            { anchorX: 1180, anchorY: 80, length: 260, amp: 0.62, speed: 2.4, phase: 1.2 },
+            { anchorX: 1990, anchorY: 75, length: 265, amp: 0.65, speed: 2.5, phase: 0.5 }
+          ],
+          springs: [],
+          movers: [],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [
+            { x: 840, y: 390, w: 120, h: 18 }
+          ],
+          bumpers: [],
+          switches: [],
+          gates: [],
+          hazards: [],
+          shooters: [
+            { type: 'bow', x: 2230, y: 315, dir: -1, interval: 2.1, timer: 0.8, speed: 360 }
+          ],
+          pendulums: [
+            { anchorX: 1520, anchorY: 110, length: 195, amp: 0.65, speed: 2.2, phase: 0, bobR: 22 }
+          ]
+        },
+
+        // STAGE 3: Sunset Canyon — Spring Pads, Wind Fans & Elevated Ledges
+        {
+          name: 'STAGE 3',
+          theme: 'sunset',
+          hint: 'Ride the wind updrafts and yellow spring pads onto high canyon cliffs!',
+          spawn: { x: 100, y: 340 },
+          checkpoints: [{ x: 1450, y: 240 }],
+          goal: { x: 2740, y: 210 },
+          trees: [
+            { x: 55, y: 400, scale: 0.9 },
+            { x: 2680, y: 260, scale: 0.95 }
+          ],
+          platforms: [
+            { x: 0, y: 400, w: 480, h: 450, type: 'earth' },
+            { x: 480, y: 250, w: 360, h: 600, type: 'earth' },
+            { x: 1080, y: 390, w: 320, h: 460, type: 'earth' },
+            { x: 1400, y: 240, w: 440, h: 610, type: 'earth' },
+            { x: 2040, y: 390, w: 340, h: 460, type: 'earth' },
+            { x: 2380, y: 260, w: 460, h: 590, type: 'earth' }
+          ],
+          bridges: [
+            { x: 960, y: 290, length: 250, thickness: 22, angle: 0.18, minAngle: -0.25, maxAngle: 0.35 }
+          ],
+          balls: [],
+          crates: [],
+          ropes: [],
+          springs: [
+            { x: 390, y: 386, w: 54, power: -760, anim: 0 },
+            { x: 2290, y: 376, w: 54, power: -760, anim: 0 }
+          ],
+          movers: [],
+          crushers: [],
+          fans: [
+            { x: 1300, y: 374, w: 74, height: 230, force: -1650 }
+          ],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [
+            { x: 1930, y: 270, r: 24, power: 620 }
+          ],
+          switches: [],
+          gates: [],
+          hazards: [
+            { type: 'spikes', x: 1140, y: 374, w: 120, h: 16 }
+          ],
+          shooters: [
+            { type: 'spear', x: 1825, y: 205, dir: -1, interval: 2.2, timer: 0.6, speed: 390 }
+          ],
+          pendulums: []
+        },
+
+        // STAGE 4: Industrial Factory — Crate Pressure Switches & Gates
+        {
+          name: 'STAGE 4',
+          theme: 'industrial',
+          hint: 'Push the wooden crate onto the red switch so the steel gate stays open!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1350, y: 380 }],
+          goal: { x: 2780, y: 330 },
+          trees: [],
+          platforms: [
+            { x: 0, y: 380, w: 1100, h: 470, type: 'earth' },
+            { x: 850, y: 120, w: 50, h: 155, type: 'stone' },
+            { x: 1280, y: 380, w: 1100, h: 470, type: 'earth' },
+            { x: 2050, y: 120, w: 50, h: 155, type: 'stone' },
+            { x: 2480, y: 380, w: 420, h: 470, type: 'earth' }
+          ],
+          bridges: [
+            { x: 1190, y: 380, length: 200, thickness: 22, angle: 0, minAngle: -0.25, maxAngle: 0.25 }
+          ],
+          balls: [],
+          crates: [
+            { x: 420, y: 320, w: 58, h: 58 },
+            { x: 1520, y: 320, w: 58, h: 58 }
+          ],
+          ropes: [],
+          springs: [],
+          movers: [],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [
+            { id: 's4a', x: 650, y: 368, w: 72, h: 12 },
+            { id: 's4b', x: 1780, y: 368, w: 72, h: 12 }
+          ],
+          gates: [
+            { id: 'g4a', switchId: 's4a', x: 856, y: 275, w: 36, h: 105 },
+            { id: 'g4b', switchId: 's4b', x: 2056, y: 275, w: 36, h: 105 }
+          ],
+          hazards: [
+            { type: 'spikes', x: 2390, y: 420, w: 80, h: 16 }
+          ],
+          shooters: [
+            { type: 'laser', x: 2880, y: 335, dir: -1, interval: 2.4, timer: 1.1, speed: 460 }
+          ],
+          pendulums: [
+            { anchorX: 1440, anchorY: 115, length: 195, amp: 0.68, speed: 2.4, phase: 0.4, bobR: 23 }
+          ]
+        },
+
+        // STAGE 5: Conveyor Belts, Moving Elevators & Buzzsaw Gauntlet
+        {
+          name: 'STAGE 5',
+          theme: 'sunset',
+          hint: 'Watch the conveyor belts pushing you toward patrolling buzzsaws!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1480, y: 330 }],
+          goal: { x: 2820, y: 260 },
+          trees: [{ x: 50, y: 380, scale: 0.9 }],
+          platforms: [
+            { x: 0, y: 380, w: 420, h: 470, type: 'earth' },
+            { x: 920, y: 330, w: 660, h: 520, type: 'earth' },
+            { x: 2060, y: 380, w: 340, h: 470, type: 'earth' },
+            { x: 2400, y: 310, w: 520, h: 540, type: 'earth' }
+          ],
+          bridges: [],
+          balls: [],
+          crates: [],
+          ropes: [],
+          springs: [
+            { x: 2320, y: 366, w: 52, power: -680, anim: 0 }
+          ],
+          movers: [
+            { x: 460, y: 380, w: 130, h: 24, startX: 460, endX: 760, startY: 380, endY: 330, speed: 1.4, phase: 0, dx: 0, dy: 0 },
+            { x: 1620, y: 330, w: 130, h: 24, startX: 1620, endX: 1900, startY: 330, endY: 380, speed: 1.5, phase: 1.0, dx: 0, dy: 0 }
+          ],
+          crushers: [],
+          fans: [],
+          conveyors: [
+            { x: 960, y: 318, w: 160, h: 14, speed: 140 },
+            { x: 2100, y: 368, w: 190, h: 14, speed: -150 }
+          ],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [],
+          gates: [],
+          hazards: [
+            { type: 'saw', x: 1180, y: 326, r: 28, speed: 0.15 },
+            { type: 'saw', x: 1370, y: 326, r: 28, speed: -0.15 },
+            { type: 'saw', x: 2560, y: 306, r: 28, speed: 0.16 }
+          ],
+          shooters: [
+            { type: 'bow', x: 2890, y: 265, dir: -1, interval: 1.9, timer: 0.5, speed: 380 }
+          ],
+          pendulums: []
+        },
+
+        // STAGE 6: Crusher Corridor — Hydraulic Pistons & Crouch Timing
+        {
+          name: 'STAGE 6',
+          theme: 'industrial',
+          hint: 'Time your sprint past slamming crushers and duck under low beams!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1440, y: 380 }],
+          goal: { x: 2860, y: 330 },
+          trees: [],
+          platforms: [
+            { x: 0, y: 380, w: 1200, h: 470, type: 'earth' },
+            { x: 420, y: 120, w: 150, h: 222, type: 'stone' },
+            { x: 1380, y: 380, w: 1580, h: 470, type: 'earth' }
+          ],
+          bridges: [
+            { x: 1290, y: 380, length: 200, thickness: 22, angle: 0, minAngle: -0.25, maxAngle: 0.25 }
+          ],
+          balls: [],
+          crates: [],
+          ropes: [],
+          springs: [],
+          movers: [],
+          crushers: [
+            { x: 740, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.3, phase: 0, curY: 190 },
+            { x: 960, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.3, phase: 1.6, curY: 190 },
+            { x: 1750, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.7, phase: 0.5, curY: 190 },
+            { x: 1980, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.7, phase: 2.1, curY: 190 },
+            { x: 2210, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.7, phase: 3.7, curY: 190 }
+          ],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [],
+          gates: [],
+          hazards: [
+            { type: 'spikes', x: 2450, y: 364, w: 96, h: 16 }
+          ],
+          shooters: [
+            { type: 'laser', x: 2940, y: 338, dir: -1, interval: 2.0, timer: 0.9, speed: 480 }
+          ],
+          pendulums: [
+            { anchorX: 1580, anchorY: 115, length: 195, amp: 0.7, speed: 2.5, phase: 0, bobR: 24 }
+          ]
+        },
+
+        // STAGE 7: Jungle Vine, Barrel Cannons & Seesaw Expedition
+        {
+          name: 'STAGE 7',
+          theme: 'tropical',
+          hint: 'Hop inside the Barrel Cannon to blast across the jungle gorge!',
+          spawn: { x: 100, y: 300 },
+          checkpoints: [{ x: 1450, y: 360 }],
+          goal: { x: 2880, y: 310 },
+          trees: [
+            { x: 55, y: 360, scale: 1.0 },
+            { x: 1480, y: 360, scale: 1.05 },
+            { x: 2820, y: 360, scale: 1.0 }
+          ],
+          platforms: [
+            { x: 0, y: 360, w: 360, h: 490, type: 'earth' },
+            { x: 1120, y: 360, w: 540, h: 490, type: 'earth' },
+            { x: 2040, y: 380, w: 280, h: 470, type: 'earth' },
+            { x: 2320, y: 455, w: 105, h: 395, type: 'earth' },
+            { x: 2425, y: 360, w: 540, h: 490, type: 'earth' }
+          ],
+          bridges: [
+            { x: 920, y: 365, length: 340, thickness: 22, angle: -0.08, minAngle: -0.35, maxAngle: 0.35 }
+          ],
+          balls: [
+            { x: 2130, y: 344, r: 36, mass: 3.4 }
+          ],
+          crates: [],
+          ropes: [
+            { anchorX: 1850, anchorY: 85, length: 250, amp: 0.6, speed: 2.4, phase: 1.4 }
+          ],
+          springs: [],
+          movers: [],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [
+            { x: 430, y: 295, angle: -0.52, power: 820 }
+          ],
+          fragiles: [],
+          bumpers: [
+            { x: 660, y: 215, r: 24, power: 540 }
+          ],
+          switches: [],
+          gates: [],
+          hazards: [],
+          shooters: [
+            { type: 'bow', x: 1640, y: 315, dir: -1, interval: 2.0, timer: 0.7, speed: 370 },
+            { type: 'spear', x: 2945, y: 315, dir: -1, interval: 2.2, timer: 1.3, speed: 410 }
+          ],
+          pendulums: []
+        },
+
+        // STAGE 8: Double Boulder Catapult & Canyon Relay
+        {
+          name: 'STAGE 8',
+          theme: 'sunset',
+          hint: 'Use heavy iron spheres to weigh down seesaws and trigger floor switches!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1480, y: 370 }],
+          goal: { x: 2940, y: 320 },
+          trees: [{ x: 50, y: 380, scale: 0.9 }],
+          platforms: [
+            { x: 0, y: 380, w: 680, h: 470, type: 'earth' },
+            { x: 1040, y: 370, w: 860, h: 480, type: 'earth' },
+            { x: 1640, y: 120, w: 50, h: 145, type: 'stone' },
+            { x: 2220, y: 370, w: 820, h: 480, type: 'earth' }
+          ],
+          bridges: [
+            { x: 860, y: 375, length: 340, thickness: 22, angle: 0.14, minAngle: -0.35, maxAngle: 0.35 },
+            { x: 2060, y: 375, length: 320, thickness: 22, angle: -0.14, minAngle: -0.35, maxAngle: 0.35 }
+          ],
+          balls: [
+            { x: 440, y: 344, r: 36, mass: 3.5 },
+            { x: 1240, y: 334, r: 36, mass: 3.5 }
+          ],
+          crates: [],
+          ropes: [],
+          springs: [],
+          movers: [],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [
+            { id: 's8', x: 1520, y: 358, w: 72, h: 12 }
+          ],
+          gates: [
+            { id: 'g8', switchId: 's8', x: 1646, y: 265, w: 36, h: 105 }
+          ],
+          hazards: [
+            { type: 'spikes', x: 2520, y: 354, w: 110, h: 16 }
+          ],
+          shooters: [
+            { type: 'spear', x: 3020, y: 325, dir: -1, interval: 1.9, timer: 0.4, speed: 420 }
+          ],
+          pendulums: [
+            { anchorX: 2380, anchorY: 110, length: 190, amp: 0.68, speed: 2.4, phase: 1.1, bobR: 23 }
+          ]
+        },
+
+        // STAGE 9: Skyward Tower Ascent (Safe Checkpoint + Wind Turbine + Ropes)
+        {
+          name: 'STAGE 9',
+          theme: 'tropical',
+          hint: 'Use wind turbines, elevators, and ropes to climb the skyward cliffs!',
+          spawn: { x: 100, y: 380 },
+          checkpoints: [{ x: 1280, y: 270 }],
+          goal: { x: 2880, y: 150 },
+          trees: [{ x: 50, y: 440, scale: 0.95 }],
+          platforms: [
+            { x: 0, y: 440, w: 460, h: 420, type: 'earth' },
+            { x: 460, y: 310, w: 320, h: 550, type: 'earth' },
+            { x: 1220, y: 270, w: 460, h: 590, type: 'earth' },
+            { x: 2140, y: 270, w: 320, h: 590, type: 'earth' },
+            { x: 2460, y: 200, w: 520, h: 660, type: 'earth' }
+          ],
+          bridges: [],
+          balls: [],
+          crates: [],
+          ropes: [
+            { anchorX: 1900, anchorY: 35, length: 230, amp: 0.62, speed: 2.4, phase: 0 }
+          ],
+          springs: [
+            { x: 2380, y: 256, w: 54, power: -680, anim: 0 }
+          ],
+          movers: [
+            { x: 820, y: 310, w: 130, h: 24, startX: 820, endX: 1060, startY: 310, endY: 270, speed: 1.5, phase: 0, dx: 0, dy: 0 }
+          ],
+          crushers: [],
+          fans: [
+            { x: 365, y: 424, w: 76, height: 240, force: -1680 }
+          ],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [],
+          gates: [],
+          hazards: [
+            { type: 'saw', x: 1520, y: 266, r: 28, speed: 0.15 }
+          ],
+          shooters: [
+            { type: 'bow', x: 765, y: 265, dir: -1, interval: 2.1, timer: 0.8, speed: 360 },
+            { type: 'bow', x: 2960, y: 155, dir: -1, interval: 1.9, timer: 0.4, speed: 390 }
+          ],
+          pendulums: []
+        },
+
+        // STAGE 10: Foundry Gauntlet — Crushers, Saws & Crate Gate
+        {
+          name: 'STAGE 10',
+          theme: 'industrial',
+          hint: 'Escort the crate past the crusher to unlock the high-security blast door!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1540, y: 380 }],
+          goal: { x: 3020, y: 330 },
+          trees: [],
+          platforms: [
+            { x: 0, y: 380, w: 1320, h: 470, type: 'earth' },
+            { x: 1080, y: 120, w: 50, h: 155, type: 'stone' },
+            { x: 1480, y: 380, w: 680, h: 470, type: 'earth' },
+            { x: 2540, y: 380, w: 600, h: 470, type: 'earth' }
+          ],
+          bridges: [],
+          balls: [],
+          crates: [
+            { x: 340, y: 320, w: 58, h: 58 }
+          ],
+          ropes: [],
+          springs: [],
+          movers: [
+            { x: 2200, y: 380, w: 130, h: 24, startX: 2200, endX: 2380, startY: 380, endY: 380, speed: 1.8, phase: 0, dx: 0, dy: 0 }
+          ],
+          crushers: [
+            { x: 640, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.2, phase: 0, curY: 190 },
+            { x: 1820, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.6, phase: 1.2, curY: 190 }
+          ],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [
+            { id: 's10', x: 920, y: 368, w: 72, h: 12 }
+          ],
+          gates: [
+            { id: 'g10', switchId: 's10', x: 1086, y: 275, w: 36, h: 105 }
+          ],
+          hazards: [
+            { type: 'saw', x: 2740, y: 376, r: 28, speed: 0.18 }
+          ],
+          shooters: [
+            { type: 'laser', x: 3120, y: 335, dir: -1, interval: 1.8, timer: 0.6, speed: 500 }
+          ],
+          pendulums: [
+            { anchorX: 2020, anchorY: 115, length: 195, amp: 0.72, speed: 2.6, phase: 0.3, bobR: 24 }
+          ]
+        },
+
+        // STAGE 11: Twin Switch Lock — Two Gates, One Giant Sphere
+        {
+          name: 'STAGE 11',
+          theme: 'industrial',
+          hint: 'Roll the iron sphere onto the first switch, then step on the second switch!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1520, y: 380 }],
+          goal: { x: 2980, y: 330 },
+          trees: [],
+          platforms: [
+            { x: 0, y: 380, w: 1280, h: 470, type: 'earth' },
+            { x: 920, y: 120, w: 48, h: 155, type: 'stone' },
+            { x: 1060, y: 120, w: 48, h: 155, type: 'stone' },
+            { x: 1460, y: 380, w: 1640, h: 470, type: 'earth' }
+          ],
+          bridges: [],
+          balls: [
+            { x: 350, y: 344, r: 36, mass: 3.5 }
+          ],
+          crates: [],
+          ropes: [
+            { anchorX: 1370, anchorY: 85, length: 245, amp: 0.55, speed: 2.3, phase: 0 }
+          ],
+          springs: [],
+          movers: [],
+          crushers: [
+            { x: 2050, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.5, phase: 0, curY: 190 },
+            { x: 2350, topY: 110, restY: 190, dropY: 305, w: 74, h: 75, speed: 2.5, phase: 1.5, curY: 190 }
+          ],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [
+            { id: 's11a', x: 640, y: 368, w: 72, h: 12 },
+            { id: 's11b', x: 800, y: 368, w: 72, h: 12 }
+          ],
+          gates: [
+            { id: 'g11a', switchId: 's11a', x: 926, y: 275, w: 34, h: 105 },
+            { id: 'g11b', switchId: 's11b', x: 1066, y: 275, w: 34, h: 105 }
+          ],
+          hazards: [
+            { type: 'spikes', x: 2620, y: 364, w: 120, h: 16 }
+          ],
+          shooters: [
+            { type: 'laser', x: 3080, y: 335, dir: -1, interval: 1.75, timer: 0.5, speed: 510 }
+          ],
+          pendulums: [
+            { anchorX: 1820, anchorY: 115, length: 195, amp: 0.72, speed: 2.6, phase: 0.8, bobR: 24 }
+          ]
+        },
+
+        // STAGE 12: Archipelago Hopping (Fragile Bridges + Bumpers + Ropes)
+        {
+          name: 'STAGE 12',
+          theme: 'tropical',
+          hint: 'Sprint across crumbling bridges and bounce off bumpers across the islands!',
+          spawn: { x: 100, y: 310 },
+          checkpoints: [{ x: 1580, y: 360 }],
+          goal: { x: 3040, y: 260 },
+          trees: [
+            { x: 50, y: 370, scale: 1.0 },
+            { x: 1620, y: 360, scale: 1.0 },
+            { x: 2980, y: 310, scale: 1.05 }
+          ],
+          platforms: [
+            { x: 0, y: 370, w: 340, h: 480, type: 'earth' },
+            { x: 1480, y: 360, w: 380, h: 490, type: 'earth' },
+            { x: 2440, y: 380, w: 260, h: 470, type: 'earth' },
+            { x: 2700, y: 310, w: 460, h: 540, type: 'earth' }
+          ],
+          bridges: [
+            { x: 1140, y: 365, length: 320, thickness: 22, angle: 0.06, minAngle: -0.32, maxAngle: 0.32 }
+          ],
+          balls: [],
+          crates: [],
+          ropes: [
+            { anchorX: 540, anchorY: 85, length: 245, amp: 0.62, speed: 2.4, phase: 0 },
+            { anchorX: 2150, anchorY: 85, length: 250, amp: 0.64, speed: 2.5, phase: 1.1 }
+          ],
+          springs: [
+            { x: 2620, y: 366, w: 54, power: -700, anim: 0 }
+          ],
+          movers: [
+            { x: 760, y: 370, w: 130, h: 24, startX: 760, endX: 920, startY: 370, endY: 370, speed: 1.6, phase: 0, dx: 0, dy: 0 }
+          ],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [
+            { x: 1860, y: 360, w: 110, h: 18 },
+            { x: 1975, y: 360, w: 110, h: 18 }
+          ],
+          bumpers: [
+            { x: 1400, y: 270, r: 24, power: 580 }
+          ],
+          switches: [],
+          gates: [],
+          hazards: [],
+          shooters: [
+            { type: 'bow', x: 1845, y: 315, dir: -1, interval: 1.9, timer: 0.6, speed: 390 },
+            { type: 'bow', x: 3140, y: 265, dir: -1, interval: 1.8, timer: 0.3, speed: 410 }
+          ],
+          pendulums: []
+        },
+
+        // STAGE 13: Canyon Express — Moving Platforms Over Saw Pits
+        {
+          name: 'STAGE 13',
+          theme: 'sunset',
+          hint: 'Ride the hover platforms carefully and leap over spinning canyon saws!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1600, y: 360 }],
+          goal: { x: 3120, y: 280 },
+          trees: [{ x: 55, y: 380, scale: 0.9 }],
+          platforms: [
+            { x: 0, y: 380, w: 400, h: 470, type: 'earth' },
+            { x: 1500, y: 360, w: 460, h: 490, type: 'earth' },
+            { x: 2640, y: 340, w: 600, h: 510, type: 'earth' }
+          ],
+          bridges: [],
+          balls: [],
+          crates: [],
+          ropes: [
+            { anchorX: 1280, anchorY: 85, length: 245, amp: 0.6, speed: 2.4, phase: 0.8 }
+          ],
+          springs: [],
+          movers: [
+            { x: 450, y: 380, w: 130, h: 24, startX: 450, endX: 720, startY: 380, endY: 340, speed: 1.6, phase: 0, dx: 0, dy: 0 },
+            { x: 800, y: 340, w: 130, h: 24, startX: 800, endX: 1080, startY: 340, endY: 360, speed: 1.7, phase: 1.4, dx: 0, dy: 0 },
+            { x: 2020, y: 360, w: 140, h: 24, startX: 2020, endX: 2440, startY: 360, endY: 340, speed: 1.8, phase: 0.4, dx: 0, dy: 0 }
+          ],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [],
+          gates: [],
+          hazards: [
+            { type: 'saw', x: 1730, y: 356, r: 28, speed: 0.16 },
+            { type: 'saw', x: 2860, y: 336, r: 28, speed: -0.17 }
+          ],
+          shooters: [
+            { type: 'spear', x: 3220, y: 295, dir: -1, interval: 1.75, timer: 0.5, speed: 440 }
+          ],
+          pendulums: [
+            { anchorX: 1900, anchorY: 100, length: 190, amp: 0.7, speed: 2.5, phase: 0, bobR: 23 }
+          ]
+        },
+
+        // STAGE 14: Heavy Artillery — Three-Stage Boulder & Switch Puzzle
+        {
+          name: 'STAGE 14',
+          theme: 'sunset',
+          hint: 'One boulder fills the gap, the second boulder opens the gate!',
+          spawn: { x: 100, y: 320 },
+          checkpoints: [{ x: 1620, y: 370 }],
+          goal: { x: 3180, y: 310 },
+          trees: [{ x: 50, y: 380, scale: 0.9 }],
+          platforms: [
+            { x: 0, y: 380, w: 760, h: 470, type: 'earth' },
+            { x: 760, y: 455, w: 110, h: 395, type: 'earth' },
+            { x: 870, y: 370, w: 1220, h: 480, type: 'earth' },
+            { x: 1840, y: 120, w: 50, h: 145, type: 'stone' },
+            { x: 2420, y: 370, w: 880, h: 480, type: 'earth' }
+          ],
+          bridges: [
+            { x: 2255, y: 375, length: 340, thickness: 22, angle: -0.14, minAngle: -0.35, maxAngle: 0.35 }
+          ],
+          balls: [
+            { x: 480, y: 344, r: 36, mass: 3.5 },
+            { x: 1250, y: 334, r: 36, mass: 3.5 }
+          ],
+          crates: [],
+          ropes: [],
+          springs: [
+            { x: 2740, y: 356, w: 54, power: -680, anim: 0 }
+          ],
+          movers: [],
+          crushers: [],
+          fans: [],
+          conveyors: [],
+          cannons: [],
+          fragiles: [],
+          bumpers: [],
+          switches: [
+            { id: 's14', x: 1710, y: 358, w: 72, h: 12 }
+          ],
+          gates: [
+            { id: 'g14', switchId: 's14', x: 1846, y: 265, w: 36, h: 105 }
+          ],
+          hazards: [
+            { type: 'spikes', x: 2860, y: 354, w: 110, h: 16 }
+          ],
+          shooters: [
+            { type: 'spear', x: 3280, y: 325, dir: -1, interval: 1.7, timer: 0.4, speed: 450 }
+          ],
+          pendulums: [
+            { anchorX: 2560, anchorY: 110, length: 190, amp: 0.72, speed: 2.6, phase: 0.5, bobR: 24 }
+          ]
+        },
+
+        // STAGE 15: The Ultimate PlonkBot Citadel (Epic Finale with ALL Mechanics!)
+        {
+          name: 'STAGE 15',
+          theme: 'industrial',
+          hint: 'ULTIMATE TEST: Conquer cannons, wind, conveyors, ropes, crushers & gates!',
+          spawn: { x: 100, y: 300 },
+          checkpoints: [
+            { x: 1240, y: 380 },
+            { x: 2380, y: 380 }
+          ],
+          goal: { x: 3480, y: 270 },
+          trees: [{ x: 50, y: 360, scale: 1.0 }],
+          platforms: [
+            { x: 0, y: 360, w: 340, h: 490, type: 'earth' },
+            { x: 700, y: 380, w: 860, h: 470, type: 'earth' },
+            { x: 1340, y: 120, w: 48, h: 160, type: 'stone' },
+            { x: 2140, y: 380, w: 680, h: 470, type: 'earth' },
+            { x: 3120, y: 320, w: 500, h: 530, type: 'earth' }
+          ],
+          bridges: [
+            { x: 520, y: 370, length: 340, thickness: 22, angle: -0.1, minAngle: -0.35, maxAngle: 0.35 }
+          ],
+          balls: [
+            { x: 220, y: 324, r: 34, mass: 3.2 }
+          ],
+          crates: [],
+          ropes: [
+            { anchorX: 1850, anchorY: 85, length: 250, amp: 0.64, speed: 2.5, phase: 0 }
+          ],
+          springs: [
+            { x: 2740, y: 366, w: 54, power: -730, anim: 0 }
+          ],
+          movers: [
+            { x: 2860, y: 330, w: 130, h: 24, startX: 2860, endX: 3010, startY: 330, endY: 320, speed: 1.6, phase: 0, dx: 0, dy: 0 }
+          ],
+          crushers: [
+            { x: 2480, topY: 110, restY: 190, dropY: 305, w: 72, h: 75, speed: 2.7, phase: 0, curY: 190 }
+          ],
+          fans: [
+            { x: 2220, y: 364, w: 72, height: 210, force: -1580 }
+          ],
+          conveyors: [
+            { x: 750, y: 368, w: 220, h: 14, speed: 130 }
+          ],
+          cannons: [
+            { x: 1610, y: 320, angle: -0.45, power: 780 }
+          ],
+          fragiles: [
+            { x: 3020, y: 320, w: 95, h: 18 }
+          ],
+          bumpers: [
+            { x: 3230, y: 235, r: 22, power: 540 }
+          ],
+          switches: [
+            { id: 's15', x: 1060, y: 368, w: 68, h: 12 }
+          ],
+          gates: [
+            { id: 'g15', switchId: 's15', x: 1346, y: 280, w: 34, h: 100 }
+          ],
+          hazards: [
+            { type: 'saw', x: 1175, y: 376, r: 24, speed: 0.16 },
+            { type: 'saw', x: 3350, y: 316, r: 26, speed: -0.17 }
+          ],
+          shooters: [
+            { type: 'bow', x: 1545, y: 335, dir: -1, interval: 1.85, timer: 0.6, speed: 410 },
+            { type: 'laser', x: 3600, y: 275, dir: -1, interval: 1.65, timer: 0.4, speed: 520 }
+          ],
+          pendulums: [
+            { anchorX: 2620, anchorY: 115, length: 195, amp: 0.74, speed: 2.7, phase: 0.2, bobR: 25 }
+          ]
+        }
+      ];
+
+      // =========================================================================
+      // 4. GAME STATE & RAGDOLL-SPRING PLAYER PHYSICS
+      // =========================================================================
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      let viewW = window.innerWidth;
+      let viewH = window.innerHeight;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      function resizeCanvas() {
+        viewW = window.innerWidth;
+        viewH = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(viewW * dpr);
+        canvas.height = Math.floor(viewH * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      const input = {
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        jumpBuffered: 0
+      };
+
+      let currentLevelIndex = Math.min(saveState.unlockedLevel - 1, LEVELS.length - 1);
+      let levelState = null;
+      let activeRespawnPoint = { x: 110, y: 310 };
+      let paused = false;
+      let levelWon = false;
+      let worldTime = 0;
+      let hintTimeout = null;
+      let screenShake = 0;
+
+      // PlonkBot Ragdoll-Spring Player Object
+      const player = {
+        x: 120,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 17,
+        halfH: 27,
+        facing: 1,
+        onGround: false,
+        coyoteTimer: 0,
+        crouching: false,
+        dead: false,
+        deadTimer: 0,
+        walkCycle: 0,
+        grabbedRope: null,
+        ropeDist: 0,
+        ropeCooldown: 0,
+        inCannon: null,
+        cannonTimer: 0,
+        // Spring-jointed ragdoll offsets for floppy head & limbs
+        torsoAngle: 0,
+        torsoAngVel: 0,
+        headX: 120,
+        headY: 272,
+        headVx: 0,
+        headVy: 0,
+        armSwing: 0,
+        pushing: false
+      };
+
+      const camera = {
+        x: 0,
+        y: 0,
+        zoom: 1
+      };
+
+      function showHint(text) {
+        const banner = document.getElementById('hintBanner');
+        if (!text) {
+          banner.classList.remove('visible');
+          return;
+        }
+        banner.textContent = text;
+        banner.classList.add('visible');
+        clearTimeout(hintTimeout);
+        hintTimeout = setTimeout(() => {
+          banner.classList.remove('visible');
+        }, 4600);
+      }
+
+      function respawnAtCheckpoint() {
+        player.x = activeRespawnPoint.x;
+        player.y = activeRespawnPoint.y - 32;
+        player.vx = 0;
+        player.vy = 0;
+        player.onGround = false;
+        player.coyoteTimer = 0;
+        player.crouching = false;
+        player.dead = false;
+        player.deadTimer = 0;
+        player.grabbedRope = null;
+        player.ropeDist = 0;
+        player.ropeCooldown = 0.25;
+        player.inCannon = null;
+        player.cannonTimer = 0;
+        player.torsoAngle = 0;
+        player.torsoAngVel = 0;
+        player.headX = player.x;
+        player.headY = player.y - 26;
+        player.headVx = 0;
+        player.headVy = 0;
+        player.pushing = false;
+      }
+
+      function loadLevel(idx, keepCheckpoint = false) {
+        currentLevelIndex = Math.max(0, Math.min(LEVELS.length - 1, idx));
+        const blueprint = LEVELS[currentLevelIndex];
+
+        levelWon = false;
+        paused = false;
+        screenShake = 0;
+
+        if (!keepCheckpoint) {
+          activeRespawnPoint = { ...blueprint.spawn };
+        }
+
+        levelState = {
+          name: blueprint.name,
+          theme: blueprint.theme || 'tropical',
+          hint: blueprint.hint,
+          goal: { ...blueprint.goal },
+          checkpoints: (blueprint.checkpoints || []).map(cp => ({
+            ...cp,
+            activated: keepCheckpoint && activeRespawnPoint.x === cp.x
+          })),
+          trees: (blueprint.trees || []).map(t => ({ ...t })),
+          platforms: blueprint.platforms.map(p => ({ ...p })),
+          bridges: (blueprint.bridges || []).map(b => ({
+            ...b,
+            angVel: 0,
+            torqueAccum: 0
+          })),
+          balls: (blueprint.balls || []).map(ball => ({
+            ...ball,
+            vx: 0,
+            vy: 0,
+            angle: 0,
+            angVel: 0
+          })),
+          crates: (blueprint.crates || []).map(cr => ({
+            ...cr,
+            vx: 0,
+            vy: 0
+          })),
+          ropes: (blueprint.ropes || []).map(rp => ({
+            ...rp,
+            angle: 0,
+            angVel: 0,
+            tipX: rp.anchorX,
+            tipY: rp.anchorY + rp.length
+          })),
+          springs: (blueprint.springs || []).map(sp => ({
+            ...sp,
+            anim: 0
+          })),
+          movers: (blueprint.movers || []).map(mv => ({
+            ...mv,
+            dx: 0,
+            dy: 0
+          })),
+          crushers: (blueprint.crushers || []).map(cr => ({
+            ...cr,
+            curY: cr.restY
+          })),
+          fans: (blueprint.fans || []).map(fn => ({ ...fn })),
+          conveyors: (blueprint.conveyors || []).map(cv => ({ ...cv })),
+          cannons: (blueprint.cannons || []).map(cn => ({
+            ...cn,
+            cooldown: 0,
+            recoil: 0
+          })),
+          fragiles: (blueprint.fragiles || []).map(fg => ({
+            ...fg,
+            state: 'solid',
+            timer: 0
+          })),
+          bumpers: (blueprint.bumpers || []).map(bp => ({
+            ...bp,
+            pulse: 0
+          })),
+          switches: (blueprint.switches || []).map(sw => ({
+            ...sw,
+            pressed: false
+          })),
+          gates: (blueprint.gates || []).map(g => ({
+            ...g,
+            openAmount: 0
+          })),
+          hazards: (blueprint.hazards || []).map(h => ({
+            ...h,
+            angle: 0
+          })),
+          shooters: (blueprint.shooters || []).map(sh => ({
+            ...sh,
+            recoil: 0
+          })),
+          projectiles: [],
+          pendulums: (blueprint.pendulums || []).map(pd => ({
+            ...pd,
+            angle: 0,
+            bobX: pd.anchorX,
+            bobY: pd.anchorY + pd.length
+          }))
+        };
+
+        respawnAtCheckpoint();
+        updateHud();
+        if (!keepCheckpoint) showHint(blueprint.hint);
+      }
+
+      function updateHud() {
+        const num = currentLevelIndex + 1;
+        document.getElementById('hudLevelNum').textContent = num;
+        document.getElementById('hudLevelName').textContent = `STAGE ${num}`;
+        document.getElementById('pauseStageLabel').textContent = `Stage ${num} of ${LEVELS.length}`;
+
+        const ratio = num / LEVELS.length;
+        const circumference = 88;
+        document.getElementById('progressCircle').style.strokeDashoffset = circumference * (1 - ratio);
+      }
+
+      // =========================================================================
+      // 5. COLLISION & PHYSICS STEP (FIXED 60HZ)
+      // =========================================================================
+      const GRAVITY = 1280;
+
+      function circleRectResolve(cx, cy, cr, rx, ry, rw, rh) {
+        const closestX = Math.max(rx, Math.min(cx, rx + rw));
+        const closestY = Math.max(ry, Math.min(cy, ry + rh));
+        const dx = cx - closestX;
+        const dy = cy - closestY;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq >= cr * cr) return null;
+
+        const dist = Math.sqrt(distSq);
+        if (dist > 0.0001) {
+          return {
+            nx: dx / dist,
+            ny: dy / dist,
+            overlap: cr - dist
+          };
+        }
+
+        const leftPen = cx - rx;
+        const rightPen = rx + rw - cx;
+        const topPen = cy - ry;
+        const bottomPen = ry + rh - cy;
+        const minPen = Math.min(leftPen, rightPen, topPen, bottomPen);
+        if (minPen === topPen) return { nx: 0, ny: -1, overlap: cr + topPen };
+        if (minPen === bottomPen) return { nx: 0, ny: 1, overlap: cr + bottomPen };
+        if (minPen === leftPen) return { nx: -1, ny: 0, overlap: cr + leftPen };
+        return { nx: 1, ny: 0, overlap: cr + rightPen };
+      }
+
+      function aabbOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+      }
+
+      function pointToSegmentInfo(px, py, ax, ay, bx, by) {
+        const abx = bx - ax;
+        const aby = by - ay;
+        const lenSq = abx * abx + aby * aby;
+        if (lenSq < 0.0001) return { dist: Math.hypot(px - ax, py - ay), along: 0 };
+        const t = Math.max(0.12, Math.min(1.0, ((px - ax) * abx + (py - ay) * aby) / lenSq));
+        const closestX = ax + abx * t;
+        const closestY = ay + aby * t;
+        return {
+          dist: Math.hypot(px - closestX, py - closestY),
+          along: t * Math.sqrt(lenSq)
+        };
+      }
+
+      function triggerPlayerDeath() {
+        if (player.dead || levelWon) return;
+        player.dead = true;
+        player.grabbedRope = null;
+        player.inCannon = null;
+        player.deadTimer = 0.85;
+        player.vy = -380;
+        player.vx = -player.facing * 180;
+        player.torsoAngVel = player.facing * 9;
+        screenShake = 9;
+        SoundFX.hurt();
+      }
+
+      function updatePhysics(dt) {
+        if (paused || !levelState) return;
+        worldTime += dt;
+        if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 32);
+
+        if (levelWon) {
+          updateRagdollSprings(dt);
+          return;
+        }
+
+        if (player.dead) {
+          player.deadTimer -= dt;
+          player.vy += GRAVITY * dt;
+          player.x += player.vx * dt;
+          player.y += player.vy * dt;
+          player.torsoAngle += player.torsoAngVel * dt;
+          updateRagdollSprings(dt);
+          if (player.deadTimer <= 0) {
+            loadLevel(currentLevelIndex, true);
+          }
+          return;
+        }
+
+        // Update Moving Platforms
+        for (const mv of levelState.movers) {
+          const prevX = mv.x;
+          const prevY = mv.y;
+          const t = 0.5 - 0.5 * Math.cos(worldTime * mv.speed + mv.phase);
+          mv.x = mv.startX + (mv.endX - mv.startX) * t;
+          mv.y = mv.startY + (mv.endY - mv.startY) * t;
+          mv.dx = mv.x - prevX;
+          mv.dy = mv.y - prevY;
+        }
+
+        // Update Swinging Tarzan Ropes
+        for (const rp of levelState.ropes) {
+          const prevAngle = rp.angle;
+          rp.angle = Math.sin(worldTime * rp.speed + rp.phase) * rp.amp;
+          rp.angVel = (rp.angle - prevAngle) / dt;
+          rp.tipX = rp.anchorX + Math.sin(rp.angle) * rp.length;
+          rp.tipY = rp.anchorY + Math.cos(rp.angle) * rp.length;
+        }
+
+        // Update Hydraulic Piston Crushers
+        for (const cr of levelState.crushers) {
+          const wave = Math.sin(worldTime * cr.speed + cr.phase);
+          const ratio = wave > 0.35 ? Math.min(1, (wave - 0.35) / 0.25) : Math.max(0, (wave + 0.35) / 0.7) * 0.1;
+          cr.curY = cr.restY + (cr.dropY - cr.restY) * ratio;
+        }
+
+        // Update Swinging Spiked Mace Pendulums
+        for (const pd of levelState.pendulums) {
+          pd.angle = Math.sin(worldTime * pd.speed + pd.phase) * pd.amp;
+          pd.bobX = pd.anchorX + Math.sin(pd.angle) * pd.length;
+          pd.bobY = pd.anchorY + Math.cos(pd.angle) * pd.length;
+        }
+
+        // Update Weapon Turrets (Bow & Arrow, Spear Launcher, Plasma Laser)
+        for (const sh of levelState.shooters) {
+          if (sh.recoil > 0) sh.recoil = Math.max(0, sh.recoil - dt * 4);
+          sh.timer -= dt;
+          if (sh.timer <= 0) {
+            sh.timer = sh.interval;
+            sh.recoil = 1.0;
+            levelState.projectiles.push({
+              type: sh.type,
+              x: sh.x + sh.dir * 24,
+              y: sh.y,
+              vx: sh.dir * sh.speed,
+              vy: sh.type === 'bow' ? -35 : 0,
+              life: 4.5
+            });
+            if (Math.abs(player.x - sh.x) < 950) {
+              if (sh.type === 'laser') SoundFX.laserShoot();
+              else SoundFX.arrowShoot();
+            }
+          }
+        }
+
+        // Update Active Weapons / Projectiles (Arrows, Spears, Laser Bolts)
+        for (let i = levelState.projectiles.length - 1; i >= 0; i--) {
+          const pr = levelState.projectiles[i];
+          pr.life -= dt;
+          if (pr.type === 'bow') {
+            pr.vy += 85 * dt; // Slight realistic arrow arc
+          }
+          pr.x += pr.vx * dt;
+          pr.y += pr.vy * dt;
+
+          let hitSolid = pr.life <= 0;
+          if (!hitSolid) {
+            for (const p of levelState.platforms) {
+              if (pr.x > p.x && pr.x < p.x + p.w && pr.y > p.y && pr.y < p.y + p.h) {
+                hitSolid = true;
+                break;
+              }
+            }
+          }
+          if (!hitSolid) {
+            for (const cr of levelState.crates) {
+              if (pr.x > cr.x && pr.x < cr.x + cr.w && pr.y > cr.y && pr.y < cr.y + cr.h) {
+                hitSolid = true;
+                break;
+              }
+            }
+          }
+          if (!hitSolid) {
+            for (const ball of levelState.balls) {
+              if (Math.hypot(pr.x - ball.x, pr.y - ball.y) < ball.r) {
+                hitSolid = true;
+                break;
+              }
+            }
+          }
+          if (!hitSolid) {
+            for (const g of levelState.gates) {
+              const closedH = g.h * (1 - g.openAmount);
+              if (closedH > 4 && pr.x > g.x && pr.x < g.x + g.w && pr.y > g.y && pr.y < g.y + closedH) {
+                hitSolid = true;
+                break;
+              }
+            }
+          }
+
+          if (hitSolid) {
+            levelState.projectiles.splice(i, 1);
+          }
+        }
+
+        // Decay spring pad, cannon, and bumper animations
+        for (const sp of levelState.springs) {
+          if (sp.anim > 0) sp.anim = Math.max(0, sp.anim - dt * 4);
+        }
+        for (const cn of levelState.cannons) {
+          if (cn.cooldown > 0) cn.cooldown = Math.max(0, cn.cooldown - dt);
+          if (cn.recoil > 0) cn.recoil = Math.max(0, cn.recoil - dt * 4);
+        }
+        for (const bp of levelState.bumpers) {
+          if (bp.pulse > 0) bp.pulse = Math.max(0, bp.pulse - dt * 5);
+        }
+
+        // Update crumbling fragile bridges
+        for (const fg of levelState.fragiles) {
+          if (fg.state === 'shaking') {
+            fg.timer -= dt;
+            if (fg.timer <= 0) {
+              fg.state = 'broken';
+              fg.timer = 3.2;
+              SoundFX.crumble();
+            }
+          } else if (fg.state === 'broken') {
+            fg.timer -= dt;
+            if (fg.timer <= 0) {
+              fg.state = 'solid';
+            }
+          }
+        }
+
+        if (input.jumpBuffered > 0) input.jumpBuffered -= dt;
+        if (player.ropeCooldown > 0) player.ropeCooldown = Math.max(0, player.ropeCooldown - dt);
+
+        // If player is inside a Barrel Cannon -> aim & blast!
+        if (player.inCannon) {
+          const cn = player.inCannon;
+          player.cannonTimer -= dt;
+          player.x = cn.x;
+          player.y = cn.y;
+          player.vx = 0;
+          player.vy = 0;
+          player.torsoAngle = cn.angle + Math.PI * 0.5;
+          if (player.cannonTimer <= 0 || input.jumpBuffered > 0) {
+            input.jumpBuffered = 0;
+            player.inCannon = null;
+            cn.cooldown = 0.6;
+            cn.recoil = 1.0;
+            player.vx = Math.cos(cn.angle) * cn.power;
+            player.vy = Math.sin(cn.angle) * cn.power;
+            player.facing = player.vx >= 0 ? 1 : -1;
+            screenShake = 8;
+            SoundFX.cannon();
+          }
+          updateRagdollSprings(dt);
+          return;
+        }
+
+        // If player is swinging anywhere along a Tarzan rope
+        if (player.grabbedRope) {
+          const rp = player.grabbedRope;
+          if (input.up && !input.down) {
+            player.ropeDist = Math.max(36, player.ropeDist - 135 * dt);
+          } else if (input.down && !input.up) {
+            player.ropeDist = Math.min(rp.length, player.ropeDist + 150 * dt);
+          }
+
+          player.x = rp.anchorX + Math.sin(rp.angle) * player.ropeDist;
+          player.y = rp.anchorY + Math.cos(rp.angle) * player.ropeDist + 8;
+          player.vx = Math.cos(rp.angle) * rp.angVel * player.ropeDist;
+          player.vy = -Math.sin(rp.angle) * rp.angVel * player.ropeDist;
+          player.torsoAngle = -rp.angle * 0.85;
+          if (input.left) player.facing = -1;
+          if (input.right) player.facing = 1;
+
+          if (input.jumpBuffered > 0) {
+            input.jumpBuffered = 0;
+            player.grabbedRope = null;
+            player.ropeCooldown = 0.32;
+            player.vx = player.vx * 1.18 + player.facing * 215;
+            player.vy = -495;
+            SoundFX.jump();
+          }
+          updateRagdollSprings(dt);
+          return;
+        }
+
+        // Player Movement & Crouch
+        player.crouching = input.down;
+        const moveDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+        if (moveDir !== 0) {
+          player.facing = moveDir;
+        }
+
+        const maxSpeed = player.crouching ? 140 : 275;
+        const accel = player.onGround ? 1900 : 1250;
+
+        if (moveDir !== 0) {
+          player.vx += moveDir * accel * dt;
+          if (Math.abs(player.vx) > maxSpeed) {
+            player.vx = Math.sign(player.vx) * maxSpeed;
+          }
+        } else {
+          const friction = player.onGround ? 1700 : 420;
+          if (Math.abs(player.vx) <= friction * dt) {
+            player.vx = 0;
+          } else {
+            player.vx -= Math.sign(player.vx) * friction * dt;
+          }
+        }
+
+        if (player.onGround) {
+          player.coyoteTimer = 0.11;
+        } else {
+          player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
+        }
+
+        if (input.jumpBuffered > 0 && player.coyoteTimer > 0) {
+          player.vy = player.crouching ? -420 : -515;
+          player.onGround = false;
+          player.coyoteTimer = 0;
+          input.jumpBuffered = 0;
+          player.torsoAngVel += player.facing * 3.5;
+          SoundFX.jump();
+        }
+
+        // Apply gravity
+        player.vy += GRAVITY * dt;
+        if (player.vy > 920) player.vy = 920;
+
+        player.x += player.vx * dt;
+        player.y += player.vy * dt;
+
+        // Check rope grab ANYWHERE along the rope segment while airborne!
+        if (player.ropeCooldown <= 0 && !player.crouching) {
+          for (const rp of levelState.ropes) {
+            const seg = pointToSegmentInfo(
+              player.x,
+              player.y - 8,
+              rp.anchorX,
+              rp.anchorY,
+              rp.tipX,
+              rp.tipY
+            );
+            if (seg.dist < 30) {
+              player.grabbedRope = rp;
+              player.ropeDist = seg.along;
+              input.jumpBuffered = 0;
+              SoundFX.ropeGrab();
+              return;
+            }
+          }
+        }
+
+        // Check Barrel Cannon entry
+        for (const cn of levelState.cannons) {
+          if (cn.cooldown <= 0 && Math.hypot(player.x - cn.x, player.y - cn.y) < 34) {
+            player.inCannon = cn;
+            player.cannonTimer = 0.42;
+            input.jumpBuffered = 0;
+            return;
+          }
+        }
+
+        // Check Wind Fan Updraft zones
+        for (const fn of levelState.fans) {
+          if (
+            player.x + player.radius > fn.x &&
+            player.x - player.radius < fn.x + fn.w &&
+            player.y <= fn.y &&
+            player.y >= fn.y - fn.height
+          ) {
+            player.vy += fn.force * dt;
+            if (player.vy < -440) player.vy = -440;
+            player.onGround = false;
+          }
+        }
+
+        // Check Pinball Bounce Bumpers
+        for (const bp of levelState.bumpers) {
+          const dx = player.x - bp.x;
+          const dy = player.y - bp.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = player.radius + bp.r;
+          if (dist < minDist) {
+            const nx = dist > 0.001 ? dx / dist : 0;
+            const ny = dist > 0.001 ? dy / dist : -1;
+            player.x = bp.x + nx * (minDist + 2);
+            player.y = bp.y + ny * (minDist + 2);
+            player.vx = nx * bp.power;
+            player.vy = Math.min(ny * bp.power, -340);
+            player.onGround = false;
+            bp.pulse = 1.0;
+            screenShake = 5;
+            SoundFX.bumper();
+          }
+        }
+
+        // Reset bridge torque accumulators
+        for (const b of levelState.bridges) {
+          b.torqueAccum = 0;
+        }
+
+        // Update Heavy Balls
+        for (const ball of levelState.balls) {
+          ball.vy += GRAVITY * dt;
+          ball.x += ball.vx * dt;
+          ball.y += ball.vy * dt;
+          ball.vx *= Math.pow(0.92, dt * 60);
+          ball.angle += (ball.vx / ball.r) * dt;
+
+          for (const p of levelState.platforms) {
+            const hit = circleRectResolve(ball.x, ball.y, ball.r, p.x, p.y, p.w, p.h);
+            if (hit) {
+              ball.x += hit.nx * hit.overlap;
+              ball.y += hit.ny * hit.overlap;
+              if (hit.ny < -0.5 && ball.vy > 0) ball.vy = 0;
+              if (Math.abs(hit.nx) > 0.7) ball.vx *= -0.25;
+            }
+          }
+
+          for (const g of levelState.gates) {
+            const closedH = g.h * (1 - g.openAmount);
+            if (closedH > 4) {
+              const hit = circleRectResolve(ball.x, ball.y, ball.r, g.x, g.y, g.w, closedH);
+              if (hit) {
+                ball.x += hit.nx * hit.overlap;
+                ball.y += hit.ny * hit.overlap;
+                if (Math.abs(hit.nx) > 0.5) ball.vx = 0;
+              }
+            }
+          }
+
+          for (const b of levelState.bridges) {
+            const cos = Math.cos(b.angle);
+            const sin = Math.sin(b.angle);
+            const nx = -sin;
+            const ny = cos;
+            const relX = ball.x - b.x;
+            const relY = ball.y - b.y;
+            const dist = relX * cos + relY * sin;
+            const perp = relX * nx + relY * ny;
+            if (Math.abs(dist) < ball.r + b.length * 0.5 && Math.abs(perp) < b.thickness * 0.5 + ball.r) {
+              const sign = perp >= 0 ? 1 : -1;
+              const overlap = (b.thickness * 0.5 + ball.r) - Math.abs(perp);
+              ball.x += nx * sign * overlap;
+              ball.y += ny * sign * overlap;
+              const vn = ball.vx * nx + ball.vy * ny;
+              if (vn * sign < 0) {
+                ball.vx -= nx * vn;
+                ball.vy -= ny * vn;
+              }
+              ball.vx += nx * 0.35;
+              b.torqueAccum += dist * 0.00018 * ball.mass;
+            }
+          }
+        }
+
+        // Update Pushable Wooden Crates
+        for (const cr of levelState.crates) {
+          cr.vy += GRAVITY * dt;
+          cr.x += cr.vx * dt;
+          cr.y += cr.vy * dt;
+          cr.vx *= Math.pow(0.84, dt * 60);
+
+          for (const p of levelState.platforms) {
+            if (aabbOverlap(cr.x, cr.y, cr.w, cr.h, p.x, p.y, p.w, p.h)) {
+              const overlapTop = (cr.y + cr.h) - p.y;
+              const overlapBottom = (p.y + p.h) - cr.y;
+              const overlapLeft = (cr.x + cr.w) - p.x;
+              const overlapRight = (p.x + p.w) - cr.x;
+              const minO = Math.min(overlapTop, overlapBottom, overlapLeft, overlapRight);
+              if (minO === overlapTop && cr.vy >= 0) {
+                cr.y = p.y - cr.h;
+                cr.vy = 0;
+              } else if (minO === overlapLeft) {
+                cr.x = p.x - cr.w;
+                cr.vx = 0;
+              } else if (minO === overlapRight) {
+                cr.x = p.x + p.w;
+                cr.vx = 0;
+              }
+            }
+          }
+
+          for (const g of levelState.gates) {
+            const closedH = g.h * (1 - g.openAmount);
+            if (closedH > 4 && aabbOverlap(cr.x, cr.y, cr.w, cr.h, g.x, g.y, g.w, closedH)) {
+              if (cr.x < g.x) cr.x = g.x - cr.w;
+              else cr.x = g.x + g.w;
+              cr.vx = 0;
+            }
+          }
+        }
+
+        // Crate-to-Crate stacking
+        for (let i = 0; i < levelState.crates.length; i++) {
+          for (let j = i + 1; j < levelState.crates.length; j++) {
+            const a = levelState.crates[i];
+            const b = levelState.crates[j];
+            if (aabbOverlap(a.x, a.y, a.w, a.h, b.x, b.y, b.w, b.h)) {
+              const overlapTop = (a.y + a.h) - b.y;
+              const overlapBottom = (b.y + b.h) - a.y;
+              const overlapLeft = (a.x + a.w) - b.x;
+              const overlapRight = (b.x + b.w) - a.x;
+              const minO = Math.min(overlapTop, overlapBottom, overlapLeft, overlapRight);
+              if (minO === overlapTop && a.vy >= 0) {
+                a.y = b.y - a.h;
+                a.vy = 0;
+              } else if (minO === overlapBottom && b.vy >= 0) {
+                b.y = a.y - b.h;
+                b.vy = 0;
+              } else if (minO === overlapLeft) {
+                const push = overlapLeft * 0.5;
+                a.x -= push;
+                b.x += push;
+              } else {
+                const push = overlapRight * 0.5;
+                a.x += push;
+                b.x -= push;
+              }
+            }
+          }
+        }
+
+        const wasOnGround = player.onGround;
+        player.onGround = false;
+        player.pushing = false;
+
+        // Player vs Static Platforms
+        for (const p of levelState.platforms) {
+          const hit = circleRectResolve(player.x, player.y, player.radius, p.x, p.y, p.w, p.h);
+          if (hit) {
+            player.x += hit.nx * hit.overlap;
+            player.y += hit.ny * hit.overlap;
+            if (hit.ny < -0.65 && player.vy >= 0) {
+              if (!wasOnGround && player.vy > 240) SoundFX.land();
+              player.vy = 0;
+              player.onGround = true;
+            } else if (hit.ny > 0.65 && player.vy < 0) {
+              player.vy = 0;
+            }
+          }
+        }
+
+        // Player vs Moving Hover Platforms
+        for (const mv of levelState.movers) {
+          const hit = circleRectResolve(player.x, player.y, player.radius, mv.x, mv.y, mv.w, mv.h);
+          if (hit) {
+            player.x += hit.nx * hit.overlap;
+            player.y += hit.ny * hit.overlap;
+            if (hit.ny < -0.65 && player.vy >= 0) {
+              player.vy = 0;
+              player.onGround = true;
+              player.x += mv.dx;
+              player.y += mv.dy;
+            } else if (hit.ny > 0.65 && player.vy < 0) {
+              player.vy = 0;
+            }
+          }
+        }
+
+        // Player vs Conveyor Belts
+        for (const cv of levelState.conveyors) {
+          const hit = circleRectResolve(player.x, player.y, player.radius, cv.x, cv.y, cv.w, cv.h);
+          if (hit) {
+            player.x += hit.nx * hit.overlap;
+            player.y += hit.ny * hit.overlap;
+            if (hit.ny < -0.65 && player.vy >= 0) {
+              player.vy = 0;
+              player.onGround = true;
+              player.x += cv.speed * dt;
+            }
+          }
+        }
+
+        // Player vs Crumbling Fragile Bridges
+        for (const fg of levelState.fragiles) {
+          if (fg.state === 'broken') continue;
+          const hit = circleRectResolve(player.x, player.y, player.radius, fg.x, fg.y, fg.w, fg.h);
+          if (hit) {
+            player.x += hit.nx * hit.overlap;
+            player.y += hit.ny * hit.overlap;
+            if (hit.ny < -0.65 && player.vy >= 0) {
+              player.vy = 0;
+              player.onGround = true;
+              if (fg.state === 'solid') {
+                fg.state = 'shaking';
+                fg.timer = 0.68;
+              }
+            }
+          }
+        }
+
+        // Player vs Bouncing Spring Launchpads
+        for (const sp of levelState.springs) {
+          const hit = circleRectResolve(player.x, player.y, player.radius, sp.x, sp.y, sp.w, 16);
+          if (hit && hit.ny < -0.3) {
+            player.y = sp.y - player.radius;
+            player.vy = sp.power;
+            player.onGround = false;
+            sp.anim = 1.0;
+            player.torsoAngVel = player.facing * 5;
+            SoundFX.spring();
+          }
+        }
+
+        // Player vs Closed Gates
+        for (const g of levelState.gates) {
+          const closedH = g.h * (1 - g.openAmount);
+          if (closedH > 4) {
+            const hit = circleRectResolve(player.x, player.y, player.radius, g.x, g.y, g.w, closedH);
+            if (hit) {
+              player.x += hit.nx * hit.overlap;
+              player.y += hit.ny * hit.overlap;
+            }
+          }
+        }
+
+        // Player vs Pushable Wooden Crates
+        for (const cr of levelState.crates) {
+          const hit = circleRectResolve(player.x, player.y, player.radius, cr.x, cr.y, cr.w, cr.h);
+          if (hit) {
+            if (hit.ny < -0.65 && player.vy >= 0) {
+              player.y = cr.y - player.radius;
+              player.vy = 0;
+              player.onGround = true;
+            } else if (Math.abs(hit.nx) > 0.6) {
+              player.x += hit.nx * hit.overlap * 0.45;
+              cr.vx -= hit.nx * 195;
+              player.pushing = true;
+            }
+          }
+        }
+
+        // Player vs Heavy Rolling Balls
+        for (const ball of levelState.balls) {
+          const dx = ball.x - player.x;
+          const dy = ball.y - player.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = ball.r + player.radius;
+          if (dist < minDist && dist > 0.001) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const overlap = minDist - dist;
+
+            if (ny > 0.55 && player.vy >= 0) {
+              player.y -= overlap;
+              player.vy = 0;
+              player.onGround = true;
+            } else {
+              player.x -= nx * overlap * 0.65;
+              ball.x += nx * overlap * 0.35;
+              ball.vx += nx * 175 * dt * 60 / ball.mass;
+              player.pushing = true;
+            }
+          }
+        }
+
+        // Player vs Hinged Bridges
+        for (const b of levelState.bridges) {
+          const cos = Math.cos(b.angle);
+          const sin = Math.sin(b.angle);
+          const nx = -sin;
+          const ny = cos;
+
+          const relX = player.x - b.x;
+          const relY = player.y - b.y;
+          const dist = relX * cos + relY * sin;
+          const perp = relX * nx + relY * ny;
+          const halfLen = b.length * 0.5;
+          const halfThick = b.thickness * 0.5;
+
+          if (Math.abs(dist) < halfLen + player.radius * 0.5 && Math.abs(perp) < halfThick + player.radius) {
+            const sign = perp >= 0 ? 1 : -1;
+            const overlap = (halfThick + player.radius) - Math.abs(perp);
+            player.x += nx * sign * overlap;
+            player.y += ny * sign * overlap;
+
+            if (sign < 0 && player.vy >= 0) {
+              player.vy = 0;
+              player.onGround = true;
+              b.torqueAccum += dist * 0.00024;
+            } else if (sign > 0 && player.vy < 0) {
+              player.vy = 0;
+            }
+          }
+        }
+
+        // Integrate Hinged Bridge Angular Physics
+        for (const b of levelState.bridges) {
+          const springBack = -b.angle * 0.65;
+          b.angVel += (b.torqueAccum + springBack) * dt * 60;
+          b.angVel *= Math.pow(0.9, dt * 60);
+          b.angle += b.angVel * dt;
+
+          if (b.angle < b.minAngle) {
+            b.angle = b.minAngle;
+            b.angVel = 0;
+          }
+          if (b.angle > b.maxAngle) {
+            b.angle = b.maxAngle;
+            b.angVel = 0;
+          }
+        }
+
+        // Update Pressure Switches & Gates (Player OR Ball OR Crate can press!)
+        for (const sw of levelState.switches) {
+          const wasPressed = sw.pressed;
+          let active = Math.abs(player.x - (sw.x + sw.w * 0.5)) < sw.w * 0.55 &&
+                       Math.abs((player.y + player.radius) - sw.y) < 18;
+
+          if (!active) {
+            for (const ball of levelState.balls) {
+              if (Math.abs(ball.x - (sw.x + sw.w * 0.5)) < sw.w * 0.55 + ball.r * 0.4 &&
+                  Math.abs((ball.y + ball.r) - sw.y) < 20) {
+                active = true;
+                break;
+              }
+            }
+          }
+
+          if (!active) {
+            for (const cr of levelState.crates) {
+              if (aabbOverlap(cr.x, cr.y, cr.w, cr.h, sw.x, sw.y - 8, sw.w, sw.h + 12)) {
+                active = true;
+                break;
+              }
+            }
+          }
+
+          sw.pressed = active;
+          if (sw.pressed && !wasPressed) SoundFX.switchOn();
+        }
+
+        for (const g of levelState.gates) {
+          const sw = levelState.switches.find(s => s.id === g.switchId);
+          const target = sw && sw.pressed ? 1 : 0;
+          g.openAmount += (target - g.openAmount) * Math.min(1, dt * 7);
+        }
+
+        // Check Mid-Stage Checkpoints
+        for (const cp of levelState.checkpoints) {
+          if (!cp.activated && Math.hypot(player.x - cp.x, player.y - (cp.y - 24)) < 44) {
+            cp.activated = true;
+            activeRespawnPoint = { x: cp.x, y: cp.y };
+            SoundFX.checkpoint();
+            showHint('CHECKPOINT SAVED!');
+          }
+        }
+
+        // Check Hydraulic Piston Crushers
+        for (const cr of levelState.crushers) {
+          const hit = circleRectResolve(
+            player.x,
+            player.y,
+            player.radius - 2,
+            cr.x - cr.w * 0.5,
+            cr.curY,
+            cr.w,
+            cr.h
+          );
+          if (hit) {
+            triggerPlayerDeath();
+            return;
+          }
+        }
+
+        // Check Hazards (Spikes & Spinning Saws)
+        for (const h of levelState.hazards) {
+          if (h.type === 'saw') {
+            h.angle += h.speed;
+            const dist = Math.hypot(player.x - h.x, player.y - h.y);
+            if (dist < player.radius + h.r - 4) {
+              triggerPlayerDeath();
+              return;
+            }
+          } else if (h.type === 'spikes') {
+            const hit = circleRectResolve(player.x, player.y, player.radius - 3, h.x + 4, h.y + 4, h.w - 8, h.h);
+            if (hit) {
+              triggerPlayerDeath();
+              return;
+            }
+          }
+        }
+
+        // Check Swinging Mace Pendulums
+        for (const pd of levelState.pendulums) {
+          if (Math.hypot(player.x - pd.bobX, player.y - pd.bobY) < player.radius + pd.bobR - 3) {
+            triggerPlayerDeath();
+            return;
+          }
+        }
+
+        // Check Incoming Arrows, Spears & Laser Bolts
+        const playerCenterY = player.crouching ? player.y + 5 : player.y - 4;
+        const playerHitR = player.crouching ? 12 : 16;
+        for (const pr of levelState.projectiles) {
+          if (Math.hypot(player.x - pr.x, playerCenterY - pr.y) < playerHitR) {
+            triggerPlayerDeath();
+            return;
+          }
+        }
+
+        // Pit Fall Check
+        if (player.y > 760) {
+          triggerPlayerDeath();
+          return;
+        }
+
+        // Goal Portal Check — Auto-Advance Straight Into Next Stage!
+        const goalDist = Math.hypot(player.x - levelState.goal.x, player.y - levelState.goal.y);
+        if (goalDist < 48) {
+          SoundFX.win();
+          const stageNum = currentLevelIndex + 1;
+          if (!saveState.completedLevels.includes(stageNum)) {
+            saveState.completedLevels.push(stageNum);
+          }
+          if (stageNum >= saveState.unlockedLevel && stageNum < LEVELS.length) {
+            saveState.unlockedLevel = stageNum + 1;
+          }
+          persistSave();
+
+          if (stageNum < LEVELS.length) {
+            loadLevel(currentLevelIndex + 1, false);
+            return;
+          } else {
+            levelWon = true;
+            document.getElementById('winSummary').textContent =
+              'Incredible! You conquered all 15 PlonkBot stages!';
+            document.getElementById('btnNextStage').style.display = 'none';
+            document.getElementById('winModal').classList.add('open');
+          }
+        }
+
+        updateRagdollSprings(dt);
+      }
+
+      function updateRagdollSprings(dt) {
+        if (!player.grabbedRope && !player.inCannon) {
+          const targetLean = (player.vx / 280) * 0.24 + (player.pushing ? player.facing * 0.22 : 0);
+          const springTorque = (targetLean - player.torsoAngle) * 42;
+          player.torsoAngVel += springTorque * dt;
+          player.torsoAngVel *= Math.pow(0.8, dt * 60);
+          player.torsoAngle += player.torsoAngVel * dt;
+        }
+
+        if (player.onGround && Math.abs(player.vx) > 12) {
+          player.walkCycle += Math.abs(player.vx) * dt * 0.055;
+        } else {
+          player.walkCycle *= 0.85;
+        }
+
+        const crouchDrop = player.crouching ? 8 : 0;
+        const targetHeadX = player.x + Math.sin(player.torsoAngle) * 23;
+        const targetHeadY = player.y - 24 + crouchDrop + (1 - Math.cos(player.torsoAngle)) * 12;
+
+        const k = 190;
+        const damp = 15;
+        const ax = (targetHeadX - player.headX) * k - player.headVx * damp;
+        const ay = (targetHeadY - player.headY) * k - player.headVy * damp;
+        player.headVx += ax * dt;
+        player.headVy += ay * dt;
+        player.headX += player.headVx * dt;
+        player.headY += player.headVy * dt;
+
+        // Keep head tethered close to neck so it never detaches
+        const dx = player.headX - targetHeadX;
+        const dy = player.headY - targetHeadY;
+        const maxOffset = 7;
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxOffset) {
+          player.headX = targetHeadX + (dx / dist) * maxOffset;
+          player.headY = targetHeadY + (dy / dist) * maxOffset;
+        }
+      }
+
+      // =========================================================================
+      // 6. PROCEDURAL CARTOON VECTOR RENDERING
+      // =========================================================================
+      function getSkinObj(id) {
+        return SKINS.find(s => s.id === id) || SKINS[0];
+      }
+
+      function drawPlonkBot(c, x, y, scale = 1, skinId = saveState.selectedSkin, customState = null) {
+        const skin = getSkinObj(skinId);
+        const st = customState || player;
+
+        c.save();
+        c.translate(x, y);
+        c.scale(scale, scale);
+
+        const facing = st.facing || 1;
+        const crouchY = st.crouching ? 7 : 0;
+        const walk = st.walkCycle || 0;
+        const legSwing = Math.sin(walk) * 8;
+
+        c.lineCap = 'round';
+        c.lineJoin = 'round';
+        c.strokeStyle = '#162436';
+        c.lineWidth = 2.4;
+
+        // Back Arm
+        c.save();
+        c.translate(-facing * 3, -6 + crouchY);
+        const backArmAngle = st.grabbedRope
+          ? -2.5
+          : st.pushing
+            ? -facing * 1.15
+            : -legSwing * 0.08;
+        c.rotate(backArmAngle);
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.lineTo(0, 13);
+        c.stroke();
+        c.fillStyle = skin.trim;
+        c.beginPath();
+        c.arc(0, 14, 3.4, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+        c.restore();
+
+        // Back Leg
+        c.save();
+        c.translate(-3, 7 + crouchY * 0.5);
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.lineTo(-legSwing * 0.7, 10 - crouchY * 0.5);
+        c.stroke();
+        c.fillStyle = skin.boots;
+        c.beginPath();
+        c.roundRect(-legSwing * 0.7 - 5, 8 - crouchY * 0.5, 11, 6, 3);
+        c.fill();
+        c.stroke();
+        c.restore();
+
+        // Torso
+        c.save();
+        c.translate(0, crouchY);
+        c.rotate(st.torsoAngle || 0);
+        c.fillStyle = skin.body;
+        c.beginPath();
+        c.roundRect(-10, -11, 20, 19, 7);
+        c.fill();
+        c.stroke();
+
+        c.fillStyle = skin.trim;
+        c.beginPath();
+        c.roundRect(-6, -6, 12, 8, 3);
+        c.fill();
+        c.restore();
+
+        // Front Leg
+        c.save();
+        c.translate(3, 7 + crouchY * 0.5);
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.lineTo(legSwing * 0.7, 10 - crouchY * 0.5);
+        c.stroke();
+        c.fillStyle = skin.boots;
+        c.beginPath();
+        c.roundRect(legSwing * 0.7 - 5, 8 - crouchY * 0.5, 11, 6, 3);
+        c.fill();
+        c.stroke();
+        c.restore();
+
+        // Front Arm
+        c.save();
+        c.translate(facing * 3, -6 + crouchY);
+        const frontArmAngle = st.grabbedRope
+          ? -2.6
+          : st.pushing
+            ? -facing * 1.25
+            : legSwing * 0.08;
+        c.rotate(frontArmAngle);
+        c.beginPath();
+        c.moveTo(0, 0);
+        c.lineTo(0, 13);
+        c.stroke();
+        c.fillStyle = skin.trim;
+        c.beginPath();
+        c.arc(0, 14, 3.4, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+        c.restore();
+
+        // Spring-Jointed Droid Head
+        const hx = customState ? 0 : (st.headX - x);
+        const hy = customState ? -24 : (st.headY - y);
+
+        c.save();
+        c.translate(hx, hy);
+        c.rotate((st.torsoAngle || 0) * 0.65);
+
+        // Antenna
+        c.beginPath();
+        c.moveTo(0, -13);
+        c.lineTo(-facing * 3, -21);
+        c.stroke();
+        c.fillStyle = skin.eye;
+        c.beginPath();
+        c.arc(-facing * 3, -22, 3.2, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+
+        // Helmet Shell
+        c.fillStyle = skin.body;
+        c.beginPath();
+        c.arc(0, 0, 14, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+
+        // Side Ear Pod
+        c.fillStyle = skin.trim;
+        c.beginPath();
+        c.arc(-facing * 12, 1, 4.2, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+
+        // Visor Screen
+        c.fillStyle = skin.visor;
+        c.beginPath();
+        c.roundRect(facing > 0 ? -3 : -12, -6, 15, 11, 5);
+        c.fill();
+
+        // Expressive LED Eyes
+        c.fillStyle = skin.eye;
+        const eyeBaseX = facing > 0 ? 2 : -9;
+        if (st.dead) {
+          c.strokeStyle = '#ff4d6d';
+          c.lineWidth = 2;
+          c.beginPath();
+          c.moveTo(eyeBaseX, -3);
+          c.lineTo(eyeBaseX + 4, 2);
+          c.moveTo(eyeBaseX + 4, -3);
+          c.lineTo(eyeBaseX, 2);
+          c.stroke();
+        } else {
+          const eyeH = st.crouching ? 2.2 : 4.2;
+          c.beginPath();
+          c.roundRect(eyeBaseX, -2.5, 3.2, eyeH, 1.5);
+          c.roundRect(eyeBaseX + 5.5, -2.5, 3.2, eyeH, 1.5);
+          c.fill();
+        }
+
+        c.restore();
+        c.restore();
+      }
+
+      function renderSkinThumbnails() {
+        const prevCanvas = document.getElementById('skinPreviewCanvas');
+        const pCtx = prevCanvas.getContext('2d');
+        pCtx.clearRect(0, 0, prevCanvas.width, prevCanvas.height);
+        drawPlonkBot(pCtx, 24, 38, 0.95, saveState.selectedSkin, {
+          facing: 1,
+          crouching: false,
+          walkCycle: 0,
+          torsoAngle: 0,
+          headX: 24,
+          headY: 14,
+          pushing: false,
+          dead: false
+        });
+      }
+
+      function drawBackground() {
+        const theme = levelState ? levelState.theme : 'tropical';
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, viewH);
+
+        if (theme === 'sunset') {
+          skyGrad.addColorStop(0, '#ff7b54');
+          skyGrad.addColorStop(0.55, '#ffb26b');
+          skyGrad.addColorStop(1, '#ffd56b');
+        } else if (theme === 'industrial') {
+          skyGrad.addColorStop(0, '#3a506b');
+          skyGrad.addColorStop(0.58, '#5bc0be');
+          skyGrad.addColorStop(1, '#a8dadc');
+        } else {
+          skyGrad.addColorStop(0, '#1ecbe1');
+          skyGrad.addColorStop(0.58, '#72e6d5');
+          skyGrad.addColorStop(1, '#baf3db');
+        }
+
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, viewW, viewH);
+
+        // Parallax Distant Hills & Silhouettes
+        ctx.save();
+        const parallaxX = -camera.x * 0.18;
+        ctx.fillStyle = theme === 'sunset'
+          ? 'rgba(180, 75, 55, 0.18)'
+          : theme === 'industrial'
+            ? 'rgba(20, 33, 61, 0.18)'
+            : 'rgba(20, 145, 138, 0.16)';
+
+        for (let i = -1; i < 12; i++) {
+          const hillX = parallaxX + i * 320;
+          ctx.beginPath();
+          ctx.arc(hillX + 120, viewH * 0.84, 190, Math.PI, 0);
+          ctx.lineTo(hillX + 340, viewH);
+          ctx.lineTo(hillX - 70, viewH);
+          ctx.closePath();
+          ctx.fill();
+
+          if (theme === 'tropical') {
+            drawPalmSilhouette(hillX + 165, viewH * 0.65, 0.72);
+          }
+        }
+        ctx.restore();
+
+        // Drifting Stylized Clouds
+        const cloudParallax = -camera.x * 0.32;
+        for (let i = 0; i < 12; i++) {
+          const cx = ((cloudParallax + i * 380 + worldTime * 10) % 4400 + 4400) % 4400 - 250;
+          const cy = 85 + (i % 3) * 52;
+          drawCloud(cx, cy, 0.8 + (i % 2) * 0.25);
+        }
+      }
+
+      function drawPalmSilhouette(x, y, s) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(s, s);
+        ctx.fillRect(-4, 0, 8, 95);
+        for (let a = -2.2; a <= 1.2; a += 0.65) {
+          ctx.save();
+          ctx.rotate(a);
+          ctx.beginPath();
+          ctx.ellipse(22, 0, 26, 7, 0.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      function drawCloud(x, y, s) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(s, s);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 24, 0, Math.PI * 2);
+        ctx.arc(24, -8, 30, 0, Math.PI * 2);
+        ctx.arc(54, -2, 22, 0, Math.PI * 2);
+        ctx.roundRect(-34, 4, 114, 18, 9);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawForegroundTree(x, y, s) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(s, s);
+        ctx.strokeStyle = '#162436';
+        ctx.lineWidth = 2.4;
+
+        ctx.fillStyle = '#9c6b30';
+        ctx.beginPath();
+        ctx.moveTo(-8, 0);
+        ctx.lineTo(-5, -135);
+        ctx.lineTo(5, -135);
+        ctx.lineTo(8, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.translate(0, -138);
+        const leafAngles = [-2.5, -1.9, -1.2, -0.5, 0.2, 0.8];
+        for (const ang of leafAngles) {
+          ctx.save();
+          ctx.rotate(ang);
+          ctx.fillStyle = '#2ec47a';
+          ctx.beginPath();
+          ctx.ellipse(24, 0, 28, 10, 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      function drawPlatform(p) {
+        ctx.save();
+        if (p.type === 'stone') {
+          ctx.fillStyle = '#64748b';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.roundRect(p.x, p.y, p.w, p.h, 6);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+          return;
+        }
+
+        ctx.fillStyle = '#734b38';
+        ctx.strokeStyle = '#231712';
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.rect(p.x, p.y, p.w, p.h);
+        ctx.fill();
+        ctx.stroke();
+
+        // Dark soil speckles
+        ctx.fillStyle = '#4f3224';
+        for (let sx = p.x + 18; sx < p.x + p.w - 14; sx += 34) {
+          for (let sy = p.y + 22; sy < p.y + Math.min(p.h, 460); sy += 34) {
+            const offset = ((sx * 13 + sy * 7) % 14) - 7;
+            ctx.beginPath();
+            ctx.arc(sx + offset, sy, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Grass tufts along top edges
+        ctx.fillStyle = '#2ec47a';
+        ctx.strokeStyle = '#162436';
+        ctx.lineWidth = 2.2;
+        for (let gx = p.x + 16; gx < p.x + p.w - 28; gx += 74) {
+          ctx.beginPath();
+          ctx.moveTo(gx, p.y);
+          ctx.lineTo(gx + 5, p.y - 12);
+          ctx.lineTo(gx + 11, p.y - 2);
+          ctx.lineTo(gx + 17, p.y - 14);
+          ctx.lineTo(gx + 23, p.y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawBridge(b) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.angle);
+
+        const halfL = b.length * 0.5;
+        const halfT = b.thickness * 0.5;
+
+        ctx.fillStyle = '#d4a338';
+        ctx.strokeStyle = '#231712';
+        ctx.lineWidth = 2.4;
+
+        ctx.beginPath();
+        ctx.roundRect(-halfL, -halfT, b.length, 7, 3);
+        ctx.roundRect(-halfL, halfT - 7, b.length, 7, 3);
+        ctx.fill();
+        ctx.stroke();
+
+        const step = 44;
+        for (let x = -halfL + 16; x < halfL - 16; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x, -halfT + 4);
+          ctx.lineTo(x + step * 0.7, halfT - 4);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = '#b58322';
+        ctx.fillRect(-halfL, -halfT, 12, b.thickness);
+        ctx.strokeRect(-halfL, -halfT, 12, b.thickness);
+        ctx.fillRect(halfL - 12, -halfT, 12, b.thickness);
+        ctx.strokeRect(halfL - 12, -halfT, 12, b.thickness);
+
+        ctx.fillStyle = '#475569';
+        ctx.beginPath();
+        ctx.arc(0, 0, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawBall(ball) {
+        ctx.save();
+        ctx.translate(ball.x, ball.y);
+        ctx.rotate(ball.angle);
+
+        ctx.fillStyle = '#6c7a89';
+        ctx.strokeStyle = '#162436';
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#2c3a47';
+        const holes = [
+          { x: -ball.r * 0.42, y: -ball.r * 0.35, r: ball.r * 0.14 },
+          { x: ball.r * 0.38, y: -ball.r * 0.28, r: ball.r * 0.16 },
+          { x: 0, y: ball.r * 0.05, r: ball.r * 0.18 },
+          { x: -ball.r * 0.3, y: ball.r * 0.45, r: ball.r * 0.13 },
+          { x: ball.r * 0.42, y: ball.r * 0.38, r: ball.r * 0.15 }
+        ];
+        for (const h of holes) {
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function drawCrates() {
+        for (const cr of levelState.crates) {
+          ctx.save();
+          ctx.translate(cr.x, cr.y);
+          ctx.fillStyle = '#c68b59';
+          ctx.strokeStyle = '#231712';
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.roundRect(0, 0, cr.w, cr.h, 6);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.strokeStyle = '#8d5b34';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(7, 7, cr.w - 14, cr.h - 14);
+          ctx.beginPath();
+          ctx.moveTo(7, 7);
+          ctx.lineTo(cr.w - 7, cr.h - 7);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawRopes() {
+        for (const rp of levelState.ropes) {
+          ctx.save();
+          ctx.strokeStyle = '#6f4518';
+          ctx.lineWidth = 5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(rp.anchorX, rp.anchorY);
+          ctx.lineTo(rp.tipX, rp.tipY);
+          ctx.stroke();
+
+          // Anchor ring
+          ctx.fillStyle = '#334155';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.arc(rp.anchorX, rp.anchorY, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Bottom grab knot
+          ctx.fillStyle = '#ffbe0b';
+          ctx.beginPath();
+          ctx.arc(rp.tipX, rp.tipY, 9, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawSprings() {
+        for (const sp of levelState.springs) {
+          ctx.save();
+          const lift = sp.anim * 12;
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.4;
+
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(sp.x + 6, sp.y + 10, sp.w - 12, 6);
+          ctx.strokeRect(sp.x + 6, sp.y + 10, sp.w - 12, 6);
+
+          ctx.beginPath();
+          ctx.moveTo(sp.x + 14, sp.y + 10);
+          ctx.lineTo(sp.x + sp.w - 14, sp.y + 4 - lift * 0.5);
+          ctx.lineTo(sp.x + 14, sp.y - lift);
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffbe0b';
+          ctx.beginPath();
+          ctx.roundRect(sp.x, sp.y - 4 - lift, sp.w, 8, 4);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawMovers() {
+        for (const mv of levelState.movers) {
+          ctx.save();
+          ctx.fillStyle = '#0096c7';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.roundRect(mv.x, mv.y, mv.w, mv.h, 8);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#90e0ef';
+          ctx.beginPath();
+          ctx.arc(mv.x + 18, mv.y + mv.h * 0.5, 4, 0, Math.PI * 2);
+          ctx.arc(mv.x + mv.w - 18, mv.y + mv.h * 0.5, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawCrushers() {
+        for (const cr of levelState.crushers) {
+          ctx.save();
+          ctx.fillStyle = '#94a3b8';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.2;
+          ctx.fillRect(cr.x - 10, cr.topY - 80, 20, cr.curY - (cr.topY - 80));
+          ctx.strokeRect(cr.x - 10, cr.topY - 80, 20, cr.curY - (cr.topY - 80));
+
+          ctx.fillStyle = '#475569';
+          ctx.beginPath();
+          ctx.roundRect(cr.x - cr.w * 0.5, cr.curY, cr.w, cr.h, 6);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffbe0b';
+          ctx.fillRect(cr.x - cr.w * 0.5 + 4, cr.curY + cr.h - 14, cr.w - 8, 10);
+          ctx.restore();
+        }
+      }
+
+      function drawFans() {
+        for (const fn of levelState.fans) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+          ctx.lineWidth = 2.4;
+          for (let i = 0; i < 4; i++) {
+            const sx = fn.x + 12 + i * ((fn.w - 24) / 3);
+            const offset = ((worldTime * 240 + i * 55) % fn.height);
+            const sy = fn.y - offset;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx, Math.max(fn.y - fn.height, sy - 32));
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = '#334155';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.roundRect(fn.x, fn.y - 10, fn.w, 16, 5);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#38b6ff';
+          const bladeW = (fn.w - 14) * (0.5 + 0.5 * Math.abs(Math.sin(worldTime * 18)));
+          ctx.fillRect(fn.x + (fn.w - bladeW) * 0.5, fn.y - 14, bladeW, 4);
+          ctx.restore();
+        }
+      }
+
+      function drawConveyors() {
+        for (const cv of levelState.conveyors) {
+          ctx.save();
+          ctx.fillStyle = '#1e293b';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.roundRect(cv.x, cv.y, cv.w, cv.h, 7);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffbe0b';
+          const step = 24;
+          const shift = ((worldTime * cv.speed * 0.4) % step + step) % step;
+          for (let x = cv.x + 10 + shift; x < cv.x + cv.w - 10; x += step) {
+            ctx.beginPath();
+            ctx.arc(x, cv.y + cv.h * 0.5, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawCannons() {
+        for (const cn of levelState.cannons) {
+          ctx.save();
+          ctx.translate(cn.x, cn.y);
+          ctx.rotate(cn.angle);
+          const kick = cn.recoil * 10;
+
+          ctx.fillStyle = '#8b5e34';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.roundRect(-24 - kick, -20, 52, 40, 10);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(-10 - kick, -20, 8, 40);
+          ctx.fillRect(20 - kick, -22, 10, 44);
+          ctx.strokeRect(20 - kick, -22, 10, 44);
+
+          ctx.fillStyle = '#ffbe0b';
+          ctx.beginPath();
+          ctx.moveTo(42, 0);
+          ctx.lineTo(32, -7);
+          ctx.lineTo(32, 7);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawFragiles() {
+        for (const fg of levelState.fragiles) {
+          if (fg.state === 'broken') continue;
+          ctx.save();
+          const shake = fg.state === 'shaking' ? (Math.random() - 0.5) * 6 : 0;
+          ctx.translate(fg.x + shake, fg.y);
+          ctx.fillStyle = fg.state === 'shaking' ? '#ef476f' : '#e09f3e';
+          ctx.strokeStyle = '#231712';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.roundRect(0, 0, fg.w, fg.h, 4);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.strokeStyle = '#231712';
+          ctx.beginPath();
+          ctx.moveTo(fg.w * 0.35, 0);
+          ctx.lineTo(fg.w * 0.42, fg.h * 0.6);
+          ctx.moveTo(fg.w * 0.7, fg.h);
+          ctx.lineTo(fg.w * 0.64, fg.h * 0.4);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawBumpers() {
+        for (const bp of levelState.bumpers) {
+          ctx.save();
+          const r = bp.r + bp.pulse * 7;
+          ctx.fillStyle = '#ef476f';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.6;
+          ctx.beginPath();
+          ctx.arc(bp.x, bp.y, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffbe0b';
+          ctx.beginPath();
+          ctx.arc(bp.x, bp.y, r * 0.55, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawCheckpoints() {
+        for (const cp of levelState.checkpoints) {
+          ctx.save();
+          ctx.translate(cp.x, cp.y);
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.6;
+
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, -48);
+          ctx.stroke();
+
+          ctx.fillStyle = cp.activated ? '#06d6a0' : '#94a3b8';
+          ctx.beginPath();
+          ctx.moveTo(0, -48);
+          ctx.lineTo(28, -38);
+          ctx.lineTo(0, -28);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      function drawSwitchAndGates() {
+        for (const sw of levelState.switches) {
+          ctx.save();
+          ctx.fillStyle = '#334155';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.2;
+          ctx.fillRect(sw.x, sw.y + 4, sw.w, 8);
+          ctx.strokeRect(sw.x, sw.y + 4, sw.w, 8);
+
+          const topOffset = sw.pressed ? 5 : 0;
+          ctx.fillStyle = sw.pressed ? '#06d6a0' : '#ef476f';
+          ctx.beginPath();
+          ctx.roundRect(sw.x + 6, sw.y - 3 + topOffset, sw.w - 12, 8, 3);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        for (const g of levelState.gates) {
+          const closedH = g.h * (1 - g.openAmount);
+          if (closedH <= 2) continue;
+          ctx.save();
+          ctx.fillStyle = '#94a3b8';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.roundRect(g.x, g.y, g.w, closedH, 4);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffbe0b';
+          for (let y = g.y + 10; y < g.y + closedH - 10; y += 22) {
+            ctx.fillRect(g.x + 4, y, g.w - 8, 6);
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawShootersAndProjectiles() {
+        for (const sh of levelState.shooters) {
+          ctx.save();
+          ctx.translate(sh.x, sh.y);
+          ctx.scale(sh.dir, 1);
+          const kick = sh.recoil * 6;
+
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.4;
+
+          if (sh.type === 'bow') {
+            // Wooden Crossbow / Bow Launcher
+            ctx.fillStyle = '#8b5e34';
+            ctx.beginPath();
+            ctx.roundRect(-14 - kick, -8, 28, 16, 5);
+            ctx.fill();
+            ctx.stroke();
+
+            // Curved Bow Arc
+            ctx.strokeStyle = '#d4a338';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(4 - kick, 0, 22, -Math.PI * 0.45, Math.PI * 0.45);
+            ctx.stroke();
+
+            // Bowstring
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(6 - kick, -21);
+            ctx.lineTo(-4 - kick, 0);
+            ctx.lineTo(6 - kick, 21);
+            ctx.stroke();
+          } else if (sh.type === 'spear') {
+            // Heavy Iron Spear Ballista
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.roundRect(-18 - kick, -12, 36, 24, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffbe0b';
+            ctx.fillRect(8 - kick, -14, 8, 28);
+            ctx.strokeRect(8 - kick, -14, 8, 28);
+          } else {
+            // Sci-Fi Laser Turret
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.roundRect(-18 - kick, -13, 36, 26, 7);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ef476f';
+            ctx.beginPath();
+            ctx.arc(14 - kick, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Draw Flying Arrows, Spears & Laser Bolts
+        for (const pr of levelState.projectiles) {
+          ctx.save();
+          ctx.translate(pr.x, pr.y);
+          ctx.rotate(Math.atan2(pr.vy, pr.vx));
+
+          if (pr.type === 'bow') {
+            // Feathered Wooden Arrow (Teer)
+            ctx.strokeStyle = '#6f4518';
+            ctx.lineWidth = 3.2;
+            ctx.beginPath();
+            ctx.moveTo(-18, 0);
+            ctx.lineTo(14, 0);
+            ctx.stroke();
+
+            // Sharp Steel Arrowhead
+            ctx.fillStyle = '#e2e8f0';
+            ctx.strokeStyle = '#162436';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(22, 0);
+            ctx.lineTo(11, -5.5);
+            ctx.lineTo(11, 5.5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Red Fletching Feathers
+            ctx.fillStyle = '#ef476f';
+            ctx.beginPath();
+            ctx.moveTo(-18, 0);
+            ctx.lineTo(-24, -5);
+            ctx.lineTo(-14, -5);
+            ctx.lineTo(-11, 0);
+            ctx.lineTo(-14, 5);
+            ctx.lineTo(-24, 5);
+            ctx.closePath();
+            ctx.fill();
+          } else if (pr.type === 'spear') {
+            // Heavy Javelin Spear
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(-24, -2.5, 42, 5);
+            ctx.fillStyle = '#ffbe0b';
+            ctx.strokeStyle = '#162436';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(28, 0);
+            ctx.lineTo(14, -7);
+            ctx.lineTo(14, 7);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            // Glowing Plasma Laser Bolt
+            ctx.fillStyle = '#ff4d6d';
+            ctx.beginPath();
+            ctx.roundRect(-18, -4, 36, 8, 4);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(-12, -1.8, 24, 3.6, 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawPendulums() {
+        for (const pd of levelState.pendulums) {
+          ctx.save();
+          // Chain
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 4.5;
+          ctx.beginPath();
+          ctx.moveTo(pd.anchorX, pd.anchorY);
+          ctx.lineTo(pd.bobX, pd.bobY);
+          ctx.stroke();
+
+          // Pivot Ring
+          ctx.fillStyle = '#162436';
+          ctx.beginPath();
+          ctx.arc(pd.anchorX, pd.anchorY, 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Spiked Wrecking Mace Ball
+          ctx.translate(pd.bobX, pd.bobY);
+          ctx.rotate(pd.angle);
+          ctx.fillStyle = '#475569';
+          ctx.strokeStyle = '#162436';
+          ctx.lineWidth = 2.4;
+
+          const spikes = 10;
+          ctx.beginPath();
+          for (let i = 0; i < spikes * 2; i++) {
+            const rad = i % 2 === 0 ? pd.bobR + 7 : pd.bobR - 2;
+            const a = (i * Math.PI) / spikes;
+            const px = Math.cos(a) * rad;
+            const py = Math.sin(a) * rad;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ef476f';
+          ctx.beginPath();
+          ctx.arc(0, 0, pd.bobR * 0.42, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawHazards() {
+        for (const h of levelState.hazards) {
+          ctx.save();
+          if (h.type === 'saw') {
+            ctx.translate(h.x, h.y);
+            ctx.rotate(h.angle);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.strokeStyle = '#162436';
+            ctx.lineWidth = 2.2;
+
+            const teeth = 12;
+            ctx.beginPath();
+            for (let i = 0; i < teeth * 2; i++) {
+              const rad = i % 2 === 0 ? h.r + 5 : h.r - 4;
+              const a = (i * Math.PI) / teeth;
+              const px = Math.cos(a) * rad;
+              const py = Math.sin(a) * rad;
+              if (i === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ef476f';
+            ctx.beginPath();
+            ctx.arc(0, 0, h.r * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          } else if (h.type === 'spikes') {
+            ctx.fillStyle = '#ef476f';
+            ctx.strokeStyle = '#162436';
+            ctx.lineWidth = 2;
+            const spikeW = 16;
+            for (let sx = h.x; sx < h.x + h.w - 4; sx += spikeW) {
+              ctx.beginPath();
+              ctx.moveTo(sx, h.y + h.h);
+              ctx.lineTo(sx + spikeW * 0.5, h.y);
+              ctx.lineTo(sx + spikeW, h.y + h.h);
+              ctx.closePath();
+              ctx.fill();
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawGoal(goal) {
+        ctx.save();
+        ctx.translate(goal.x, goal.y);
+
+        const pulse = 1 + Math.sin(worldTime * 5) * 0.08;
+        ctx.strokeStyle = '#162436';
+        ctx.lineWidth = 3;
+
+        ctx.fillStyle = '#334155';
+        ctx.beginPath();
+        ctx.roundRect(-24, 24, 48, 12, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.scale(pulse, pulse);
+        const grad = ctx.createRadialGradient(0, -4, 4, 0, -4, 32);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.5, '#06d6a0');
+        grad.addColorStop(1, '#0096c7');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(0, -4, 26, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffbe0b';
+        ctx.beginPath();
+        ctx.arc(0, -4, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function renderScene() {
+        drawBackground();
+
+        const targetZoom = viewW < 640 ? 0.92 : 1.05;
+        camera.zoom += (targetZoom - camera.zoom) * 0.1;
+
+        const desiredCamX = player.x - (viewW / camera.zoom) * 0.36;
+        const desiredCamY = player.y - (viewH / camera.zoom) * 0.55;
+        camera.x += (Math.max(-40, desiredCamX) - camera.x) * 0.12;
+        camera.y += (Math.max(-140, Math.min(180, desiredCamY)) - camera.y) * 0.1;
+
+        const shakeX = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
+        const shakeY = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
+
+        ctx.save();
+        ctx.scale(camera.zoom, camera.zoom);
+        ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+
+        for (const t of levelState.trees) drawForegroundTree(t.x, t.y, t.scale);
+        drawRopes();
+        for (const p of levelState.platforms) drawPlatform(p);
+        drawCheckpoints();
+        drawGoal(levelState.goal);
+        drawMovers();
+        drawConveyors();
+        drawFragiles();
+        drawSprings();
+        drawFans();
+        drawBumpers();
+        drawSwitchAndGates();
+        for (const b of levelState.bridges) drawBridge(b);
+        drawCrushers();
+        drawPendulums();
+        drawHazards();
+        drawCrates();
+        for (const ball of levelState.balls) drawBall(ball);
+        if (!player.inCannon) {
+          drawPlonkBot(ctx, player.x, player.y, 1, saveState.selectedSkin, null);
+        }
+        drawShootersAndProjectiles();
+        drawCannons();
+
+        ctx.restore();
+      }
+
+      // =========================================================================
+      // 7. INPUT & UI BINDINGS
+      // =========================================================================
+      function bindHoldButton(el, keyName) {
+        const press = (e) => {
+          e.preventDefault();
+          ensureAudio();
+          input[keyName] = true;
+          if (keyName === 'up') input.jumpBuffered = 0.14;
+          el.classList.add('pressed');
+        };
+        const release = (e) => {
+          e.preventDefault();
+          input[keyName] = false;
+          el.classList.remove('pressed');
+        };
+
+        el.addEventListener('pointerdown', press);
+        el.addEventListener('pointerup', release);
+        el.addEventListener('pointercancel', release);
+        el.addEventListener('pointerleave', release);
+      }
+
+      bindHoldButton(document.getElementById('btnLeft'), 'left');
+      bindHoldButton(document.getElementById('btnRight'), 'right');
+      bindHoldButton(document.getElementById('btnDown'), 'down');
+      bindHoldButton(document.getElementById('btnUp'), 'up');
+
+      window.addEventListener('keydown', (e) => {
+        ensureAudio();
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') input.left = true;
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') input.right = true;
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') input.down = true;
+        if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') {
+          if (!input.up) input.jumpBuffered = 0.14;
+          input.up = true;
+        }
+        if (e.code === 'KeyR') loadLevel(currentLevelIndex, false);
+        if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') input.left = false;
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') input.right = false;
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') input.down = false;
+        if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') input.up = false;
+      });
+
+      const pauseModal = document.getElementById('pauseModal');
+      const stagesModal = document.getElementById('stagesModal');
+      const skinsModal = document.getElementById('skinsModal');
+      const winModal = document.getElementById('winModal');
+
+      function closeAllModals() {
+        pauseModal.classList.remove('open');
+        stagesModal.classList.remove('open');
+        skinsModal.classList.remove('open');
+        winModal.classList.remove('open');
+        paused = false;
+      }
+
+      function togglePause() {
+        if (levelWon) return;
+        if (pauseModal.classList.contains('open')) {
+          closeAllModals();
+        } else {
+          closeAllModals();
+          paused = true;
+          pauseModal.classList.add('open');
+        }
+      }
+
+      document.getElementById('btnPause').addEventListener('click', togglePause);
+      document.getElementById('btnResume').addEventListener('click', closeAllModals);
+
+      document.getElementById('btnQuickRestart').addEventListener('click', () => {
+        ensureAudio();
+        closeAllModals();
+        loadLevel(currentLevelIndex, false);
+      });
+
+      document.getElementById('btnModalRestart').addEventListener('click', () => {
+        closeAllModals();
+        loadLevel(currentLevelIndex, false);
+      });
+
+      const btnSound = document.getElementById('btnToggleSound');
+      function refreshSoundLabel() {
+        btnSound.textContent = saveState.muted ? 'SOUND: OFF' : 'SOUND: ON';
+      }
+      refreshSoundLabel();
+
+      btnSound.addEventListener('click', () => {
+        saveState.muted = !saveState.muted;
+        persistSave();
+        refreshSoundLabel();
+        if (!saveState.muted) ensureAudio();
+      });
+
+      function openStagesModal() {
+        closeAllModals();
+        paused = true;
+        const grid = document.getElementById('levelsGrid');
+        grid.innerHTML = '';
+
+        LEVELS.forEach((lvl, idx) => {
+          const stageNum = idx + 1;
+          const unlocked = stageNum <= saveState.unlockedLevel;
+          const completed = saveState.completedLevels.includes(stageNum);
+
+          const cell = document.createElement('button');
+          cell.className = 'lvl-cell';
+          if (unlocked) cell.classList.add('unlocked');
+          if (completed) cell.classList.add('completed');
+          if (idx === currentLevelIndex) cell.classList.add('current');
+
+          cell.textContent = unlocked ? stageNum : '🔒';
+          cell.disabled = !unlocked;
+          cell.addEventListener('click', () => {
+            closeAllModals();
+            loadLevel(idx, false);
+          });
+          grid.appendChild(cell);
+        });
+
+        stagesModal.classList.add('open');
+      }
+
+      document.getElementById('btnLevelSelect').addEventListener('click', openStagesModal);
+      document.getElementById('btnOpenStagesFromPause').addEventListener('click', openStagesModal);
+      document.getElementById('btnCloseStages').addEventListener('click', closeAllModals);
+
+      function openSkinsModal() {
+        closeAllModals();
+        paused = true;
+        const grid = document.getElementById('skinsGrid');
+        grid.innerHTML = '';
+
+        SKINS.forEach((skin) => {
+          const btn = document.createElement('button');
+          btn.className = 'skin-option';
+          if (skin.id === saveState.selectedSkin) btn.classList.add('selected');
+
+          const miniCanvas = document.createElement('canvas');
+          miniCanvas.width = 56;
+          miniCanvas.height = 60;
+          const mCtx = miniCanvas.getContext('2d');
+          drawPlonkBot(mCtx, 28, 43, 1.05, skin.id, {
+            facing: 1,
+            crouching: false,
+            walkCycle: 0,
+            torsoAngle: 0,
+            headX: 28,
+            headY: 18,
+            pushing: false,
+            dead: false
+          });
+
+          const label = document.createElement('span');
+          label.textContent = skin.name;
+
+          btn.appendChild(miniCanvas);
+          btn.appendChild(label);
+
+          btn.addEventListener('click', () => {
+            saveState.selectedSkin = skin.id;
+            persistSave();
+            renderSkinThumbnails();
+            openSkinsModal();
+          });
+
+          grid.appendChild(btn);
+        });
+
+        skinsModal.classList.add('open');
+      }
+
+      document.getElementById('btnSkinModal').addEventListener('click', openSkinsModal);
+      document.getElementById('btnCloseSkins').addEventListener('click', closeAllModals);
+
+      document.getElementById('btnNextStage').addEventListener('click', () => {
+        closeAllModals();
+        loadLevel(currentLevelIndex + 1, false);
+      });
+
+      document.getElementById('btnReplayStage').addEventListener('click', () => {
+        closeAllModals();
+        loadLevel(currentLevelIndex, false);
+      });
+
+      // =========================================================================
+      // 8. MAIN FIXED-TIMESTEP GAME LOOP
+      // =========================================================================
+      let lastTimestamp = 0;
+      let accumulator = 0;
+      const FIXED_DT = 1 / 60;
+
+      function gameLoop(timestamp) {
+        if (!lastTimestamp) lastTimestamp = timestamp;
+        const frameTime = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
+        lastTimestamp = timestamp;
+        accumulator += frameTime;
+
+        while (accumulator >= FIXED_DT) {
+          updatePhysics(FIXED_DT);
+          accumulator -= FIXED_DT;
+        }
+
+        renderScene();
+        requestAnimationFrame(gameLoop);
+      }
+
+      window.onload = function () {
+        renderSkinThumbnails();
+        loadLevel(currentLevelIndex, false);
+        requestAnimationFrame(gameLoop);
+      };
+    })();
+  </script>
+</body>
+</html>
