@@ -1178,12 +1178,11 @@
             { anchorX: 2020, anchorY: 115, length: 195, amp: 0.72, speed: 2.6, phase: 0.3, bobR: 24 }
           ]
         },
-
-        // STAGE 11: Twin Switch Lock — Two Gates, One Giant Sphere
+        // STAGE 11: Twin Switch Lock — Two Gates, Two Heavy Spheres & Latching Switch
         {
           name: 'STAGE 11',
           theme: 'industrial',
-          hint: 'Roll the iron sphere onto the first switch, then step on the second switch!',
+          hint: 'Roll a sphere onto the latching switch, then roll the second sphere onto the next switch!',
           spawn: { x: 100, y: 320 },
           checkpoints: [{ x: 1520, y: 380 }],
           goal: { x: 2980, y: 330 },
@@ -1196,7 +1195,8 @@
           ],
           bridges: [],
           balls: [
-            { x: 350, y: 344, r: 36, mass: 3.5 }
+            { x: 350, y: 344, r: 36, mass: 3.5 },
+            { x: 730, y: 344, r: 32, mass: 3.0 }
           ],
           crates: [],
           ropes: [
@@ -1214,8 +1214,8 @@
           fragiles: [],
           bumpers: [],
           switches: [
-            { id: 's11a', x: 640, y: 368, w: 72, h: 12 },
-            { id: 's11b', x: 800, y: 368, w: 72, h: 12 }
+            { id: 's11a', x: 560, y: 368, w: 72, h: 12, latch: true },
+            { id: 's11b', x: 830, y: 368, w: 72, h: 12, latch: true }
           ],
           gates: [
             { id: 'g11a', switchId: 's11a', x: 926, y: 275, w: 34, h: 105 },
@@ -2389,8 +2389,9 @@
         // Update Pressure Switches & Gates (Player OR Ball OR Crate can press!)
         for (const sw of levelState.switches) {
           const wasPressed = sw.pressed;
-          let active = Math.abs(player.x - (sw.x + sw.w * 0.5)) < sw.w * 0.55 &&
-                       Math.abs((player.y + player.radius) - sw.y) < 18;
+          let active = (sw.latch && sw.pressed) ||
+                       (Math.abs(player.x - (sw.x + sw.w * 0.5)) < sw.w * 0.55 &&
+                        Math.abs((player.y + player.radius) - sw.y) < 18);
 
           if (!active) {
             for (const ball of levelState.balls) {
